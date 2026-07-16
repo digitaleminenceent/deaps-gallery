@@ -56,6 +56,7 @@ async function updateAuthUI() {
 
   if (user) {
     authArea.innerHTML = `
+      <a href="account.html" class="btn btn-outline-light btn-sm me-1">My Account</a>
       <span class="text-white small me-2">${user.email}</span>
       <button class="btn btn-outline-light btn-sm" id="logoutBtn">Logout</button>
     `;

@@ -100,7 +100,7 @@ galleryContainer.innerHTML+=`
 
 <div class="col-xl-3 col-lg-4 col-md-6">
 
-<div class="style-card">
+<div class="style-card" onclick="openStyle('${item.id}')" style="cursor:pointer;">
 
 <img
 src="${item.preview_url}"
@@ -125,7 +125,7 @@ ${item.title}
 
 class="btn btn-warning w-100 mt-3"
 
-onclick="openStyle('${item.id}')">
+onclick="event.stopPropagation(); openStyle('${item.id}')">
 
 View Style
 
@@ -219,6 +219,57 @@ window.open(
 
 };
 
+// ---- FAVORITE BUTTON ----
+document.getElementById("favoriteBtn").onclick = async function(){
+  const msgBox = document.getElementById("actionMsg");
+  const { data: { user } } = await supabaseClient.auth.getUser();
+
+  if (!user) {
+    msgBox.innerHTML = `<span class="text-danger">Sila login dulu di homepage untuk favorite.</span>`;
+    return;
+  }
+
+  const { error } = await supabaseClient.from('favorites').insert({
+    user_id: user.id,
+    image_id: item.id
+  });
+
+  if (error) {
+    if (error.code === '23505') {
+      msgBox.innerHTML = `<span class="text-warning">Dah ada dalam favorite anda.</span>`;
+    } else {
+      msgBox.innerHTML = `<span class="text-danger">${error.message}</span>`;
+    }
+    return;
+  }
+
+  msgBox.innerHTML = `<span class="text-success">Ditambah ke favorite! ❤️</span>`;
+};
+
+// ---- ADD TO CART BUTTON ----
+document.getElementById("cartBtn").onclick = async function(){
+  const msgBox = document.getElementById("actionMsg");
+  const { data: { user } } = await supabaseClient.auth.getUser();
+
+  if (!user) {
+    msgBox.innerHTML = `<span class="text-danger">Sila login dulu di homepage untuk add to cart.</span>`;
+    return;
+  }
+
+  const { error } = await supabaseClient.from('cart_items').insert({
+    user_id: user.id,
+    image_id: item.id,
+    quantity: 1
+  });
+
+  if (error) {
+    msgBox.innerHTML = `<span class="text-danger">${error.message}</span>`;
+    return;
+  }
+
+  msgBox.innerHTML = `<span class="text-success">Ditambah ke cart! 🛒</span>`;
+};
+
 const modal=new bootstrap.Modal(
 
 document.getElementById("styleModal")
@@ -228,6 +279,33 @@ document.getElementById("styleModal")
 modal.show();
 
 }
+
+// ======================================
+// AUTH STATUS (navbar)
+// ======================================
+
+async function updateAuthArea() {
+  const { data: { user } } = await supabaseClient.auth.getUser();
+  const authArea = document.getElementById('authArea');
+
+  if (user) {
+    authArea.innerHTML = `
+      <a href="account.html" class="btn btn-outline-light btn-sm me-1">My Account</a>
+      <span class="text-white small me-2">${user.email}</span>
+      <button class="btn btn-outline-light btn-sm" id="logoutBtn">Logout</button>
+    `;
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      await supabaseClient.auth.signOut();
+      updateAuthArea();
+    });
+  } else {
+    authArea.innerHTML = `
+      <a href="index.html" class="btn btn-outline-warning btn-sm">Login</a>
+    `;
+  }
+}
+
+updateAuthArea();
 
 // ======================================
 // INIT

@@ -289,6 +289,12 @@ async function loadCatalog() {
     return;
   }
 
+  // Store prompts keyed by id to avoid quote-escaping issues in onclick
+  window._imagePrompts = {};
+  images.forEach(img => {
+    window._imagePrompts[img.id] = img.admin_prompt || '';
+  });
+
   container.innerHTML = images.map(img => `
     <div class="col-md-3 col-6">
       <div class="card bg-secondary bg-opacity-25 border-secondary h-100">
@@ -298,11 +304,31 @@ async function loadCatalog() {
           <p class="small mb-1">${img.title}</p>
           <p class="small text-secondary mb-1">${img.category}</p>
           <p class="small mb-2">RM${img.price}</p>
+          <button class="btn btn-sm btn-outline-warning w-100 mb-2" onclick="copyPrompt('${img.id}')">
+            <i class="bi bi-clipboard"></i> Copy Prompt
+          </button>
           <button class="btn btn-sm btn-outline-danger w-100" onclick="deleteImage('${img.id}')">Delete</button>
         </div>
       </div>
     </div>
   `).join('');
+}
+
+// ---- COPY PROMPT TO CLIPBOARD ----
+async function copyPrompt(imageId) {
+  const prompt = (window._imagePrompts && window._imagePrompts[imageId]) || '';
+
+  if (!prompt) {
+    alert('Tiada prompt untuk gambar ini.');
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(prompt);
+    alert('Prompt disalin ke clipboard!');
+  } catch (err) {
+    alert('Gagal salin: ' + err.message);
+  }
 }
 
 // ---- DELETE IMAGE ----

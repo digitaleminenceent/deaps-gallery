@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>DEAPS My Account</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+<link rel="stylesheet" href="assets/css/style.css">
+
+</head>
+<body class="bg-dark text-white">
+
+<nav class="navbar navbar-dark bg-black border-bottom border-secondary">
+  <div class="container d-flex justify-content-between align-items-center">
+    <a href="index.html" class="navbar-brand fw-bold d-flex align-items-center gap-2">
+      <img src="assets/logo.png" alt="DEAPS" style="height:36px;">
+      <span>Digital Eminence AI Photography Studio</span>
+    </a>
+    <div class="d-flex align-items-center gap-2">
+      <div id="authArea"></div>
+      <a href="index.html" class="btn btn-outline-light btn-sm">
+        <i class="bi bi-arrow-left"></i> Back
+      </a>
+    </div>
+  </div>
+</nav>
+
+<div class="container py-5">
+
+  <!-- NOT LOGGED IN -->
+  <div id="notLoggedIn" class="text-center" style="display:none;">
+    <p class="text-secondary">Sila login untuk lihat akaun anda.</p>
+    <a href="index.html" class="btn btn-warning">Pergi ke Homepage</a>
+  </div>
+
+  <!-- LOGGED IN CONTENT -->
+  <div id="accountContent" style="display:none;">
+
+    <ul class="nav nav-tabs border-secondary mb-4">
+      <li class="nav-item">
+        <button class="nav-link active bg-dark text-warning border-secondary" id="tabFavoritesBtn" onclick="switchTab('favorites')">
+          <i class="bi bi-heart-fill"></i> My Favorites
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link bg-dark text-white border-secondary" id="tabCartBtn" onclick="switchTab('cart')">
+          <i class="bi bi-cart-fill"></i> My Cart
+        </button>
+      </li>
+    </ul>
+
+    <!-- FAVORITES TAB -->
+    <div id="favoritesTab">
+      <div class="row g-3" id="favoritesContainer"></div>
+    </div>
+
+    <!-- CART TAB -->
+    <div id="cartTab" style="display:none;">
+      <div class="row g-3" id="cartContainer"></div>
+      <div class="text-end mt-4">
+        <h4>Total: RM<span id="cartTotal">0.00</span></h4>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-client.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
+<script src="assets/js/account.js"></script>
+
+</body>
+
+</html>

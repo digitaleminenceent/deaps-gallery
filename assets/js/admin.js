@@ -178,6 +178,21 @@ document.getElementById('adminLoginForm').addEventListener('submit', async (e) =
   checkAdminAccess();
 });
 
+// ---- SHOW / HIDE ADMIN PASSWORD ----
+const toggleAdminPasswordBtn = document.getElementById('toggleAdminPassword');
+if (toggleAdminPasswordBtn) {
+  toggleAdminPasswordBtn.addEventListener('click', () => {
+    const passwordInput = document.getElementById('adminPassword');
+    const icon = toggleAdminPasswordBtn.querySelector('i');
+    const isHidden = passwordInput.type === 'password';
+
+    passwordInput.type = isHidden ? 'text' : 'password';
+    icon.classList.toggle('bi-eye', !isHidden);
+    icon.classList.toggle('bi-eye-slash', isHidden);
+    toggleAdminPasswordBtn.setAttribute('aria-label', isHidden ? 'Hide password' : 'Show password');
+  });
+}
+
 // ---- IMAGE PREVIEW BEFORE UPLOAD ----
 document.getElementById('imgFile').addEventListener('change', (e) => {
   const file = e.target.files[0];

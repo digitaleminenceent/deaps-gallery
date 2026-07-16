@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="assets/css/style.css">
 
 </head>
-<body class="bg-dark text-white">
+<body class="admin-page-body admin-glow text-white">
 
 <nav class="navbar navbar-dark bg-black border-bottom border-secondary">
   <div class="container d-flex justify-content-between align-items-center">
@@ -31,35 +31,64 @@
 <div class="container py-5">
 
   <!-- LOGIN CARD -->
-  <div id="loginCard" class="mx-auto" style="max-width: 400px; display:none;">
-    <div class="card bg-secondary bg-opacity-25 border-secondary">
-      <div class="card-body">
-        <h5 class="card-title mb-3">Admin Login</h5>
-        <form id="adminLoginForm">
-          <div class="mb-3">
-            <label class="form-label">Email</label>
-            <input type="email" id="adminEmail" class="form-control" required>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Password</label>
-            <input type="password" id="adminPassword" class="form-control" required>
-          </div>
-          <div id="adminLoginError" class="text-danger small mb-2"></div>
-          <button type="submit" class="btn btn-warning w-100">Login</button>
-        </form>
+  <div id="loginCard" class="admin-auth-wrap mx-auto" style="max-width: 440px; display:none;">
+    <div class="admin-login-card">
+
+      <div class="admin-login-badge">
+        <img src="assets/logo.png" alt="DEAPS" class="admin-login-logo">
       </div>
+
+      <p class="admin-login-eyebrow">Studio Control Panel</p>
+      <h1 class="admin-login-title">Admin Login</h1>
+      <p class="admin-login-subtitle">Sign in to manage the DEAPS AI Photography catalog.</p>
+
+      <form id="adminLoginForm" class="admin-login-form" autocomplete="off">
+
+        <div class="mb-3">
+          <label class="admin-field-label" for="adminEmail">Email</label>
+          <div class="admin-input-group">
+            <span class="admin-input-icon"><i class="bi bi-envelope"></i></span>
+            <input type="email" id="adminEmail" class="form-control admin-input" placeholder="admin@deaps.studio" required>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="admin-field-label" for="adminPassword">Password</label>
+          <div class="admin-input-group">
+            <span class="admin-input-icon"><i class="bi bi-lock"></i></span>
+            <input type="password" id="adminPassword" class="form-control admin-input" placeholder="••••••••" required>
+            <button type="button" class="admin-input-toggle" id="toggleAdminPassword" aria-label="Show password">
+              <i class="bi bi-eye"></i>
+            </button>
+          </div>
+        </div>
+
+        <div id="adminLoginError" class="admin-login-error small mb-2"></div>
+
+        <button type="submit" class="btn admin-login-btn w-100">
+          <i class="bi bi-shield-lock"></i> Log In to Dashboard
+        </button>
+
+      </form>
+
+      <p class="admin-login-footnote"><i class="bi bi-lock-fill"></i> Authorized DEAPS personnel only</p>
+
     </div>
   </div>
 
   <!-- ACCESS DENIED -->
-  <div id="deniedCard" class="mx-auto text-center" style="max-width: 400px; display:none;">
-    <p class="text-danger">Access Denied. Akaun ini bukan admin.</p>
+  <div id="deniedCard" class="admin-auth-wrap mx-auto text-center" style="max-width: 440px; display:none;">
+    <div class="admin-denied-card">
+      <div class="admin-denied-icon"><i class="bi bi-shield-exclamation"></i></div>
+      <h2 class="admin-denied-title">Access Denied</h2>
+      <p class="admin-denied-text">Akaun ini bukan admin.</p>
+    </div>
   </div>
 
   <!-- DASHBOARD -->
   <div id="dashboard" style="display:none;">
 
-    <h2 class="mb-4" id="formHeading">Tambah Gambar Katalog</h2>
+    <h2 class="mb-4 gold-heading" id="formHeading">Tambah Gambar Katalog</h2>
 
     <form id="imageForm" class="mb-5">
       <input type="hidden" id="editingId" value="">
@@ -134,7 +163,7 @@
 
     <hr class="border-secondary">
 
-    <h2 class="mb-4">Senarai Katalog</h2>
+    <h2 class="mb-4 gold-heading">Senarai Katalog</h2>
     <div id="catalogList" class="row g-3"></div>
 
   </div>

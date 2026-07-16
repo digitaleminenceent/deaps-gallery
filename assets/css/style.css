@@ -1,7 +1,9 @@
 /* ==========================================
    DEAPS AI Photography Studio
-   Version 1.0
+   Version 1.1 — Premium Visual Identity
 ========================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
 
 :root{
 
@@ -10,8 +12,33 @@
 --card2:#1e1e1e;
 --gold:#D4AF37;
 --gold2:#FFD86A;
+--gold-deep:#8a6423;
+--gold-line:rgba(212,175,55,.35);
 --text:#ffffff;
 --muted:#a5a5a5;
+
+--font-display:'Cinzel', 'Times New Roman', serif;
+--font-body:'Poppins', 'Segoe UI', sans-serif;
+
+}
+
+/* ================= PREMIUM TITLE TREATMENT ================= */
+/* Shared gold gradient text used by every category / section title
+   so headings read as one consistent, premium identity. */
+
+.gold-heading{
+
+font-family:var(--font-display);
+font-weight:700;
+letter-spacing:1.5px;
+
+background:linear-gradient(135deg, var(--gold2) 0%, var(--gold) 55%, var(--gold-deep) 100%);
+-webkit-background-clip:text;
+background-clip:text;
+color:var(--gold);
+-webkit-text-fill-color:transparent;
+
+filter:drop-shadow(0 2px 12px rgba(212,175,55,.25));
 
 }
 
@@ -39,10 +66,7 @@ linear-gradient(
 #090909 100%
 );
 
-font-family:
-
-"Segoe UI",
-sans-serif;
+font-family:var(--font-body);
 
 color:white;
 
@@ -55,6 +79,30 @@ overflow-x:hidden;
 .navbar{
 
 backdrop-filter:blur(12px);
+
+}
+
+.navbar-brand{
+
+font-family:var(--font-display);
+
+font-weight:700;
+
+letter-spacing:1px;
+
+font-size:18px;
+
+color:var(--gold2)!important;
+
+}
+
+.navbar-brand span{
+
+background:linear-gradient(135deg, var(--gold2) 0%, var(--gold) 60%, var(--gold-deep) 100%);
+-webkit-background-clip:text;
+background-clip:text;
+color:var(--gold);
+-webkit-text-fill-color:transparent;
 
 }
 
@@ -131,21 +179,35 @@ box-shadow:
 
 .hero-title{
 
+font-family:var(--font-display);
+
 font-size:72px;
 
 font-weight:800;
 
-letter-spacing:8px;
+letter-spacing:10px;
 
 margin-bottom:15px;
+
+background:linear-gradient(135deg, var(--gold2) 0%, var(--gold) 55%, var(--gold-deep) 100%);
+-webkit-background-clip:text;
+background-clip:text;
+color:var(--gold);
+-webkit-text-fill-color:transparent;
+
+filter:drop-shadow(0 4px 24px rgba(212,175,55,.3));
 
 }
 
 .hero-subtitle{
 
-font-weight:300;
+font-family:var(--font-display);
 
-color:#ddd;
+font-weight:500;
+
+letter-spacing:2px;
+
+color:#e9e0c8;
 
 margin-bottom:15px;
 
@@ -213,9 +275,13 @@ box-shadow:
 
 .stat-box h2{
 
+font-family:var(--font-display);
+
 color:var(--gold);
 
 font-size:34px;
+
+font-weight:700;
 
 margin-bottom:8px;
 
@@ -302,15 +368,51 @@ margin-bottom:45px;
 
 .section-title h2{
 
+font-family:var(--font-display);
+
 font-size:40px;
 
 font-weight:700;
+
+letter-spacing:1.5px;
+
+background:linear-gradient(135deg, var(--gold2) 0%, var(--gold) 55%, var(--gold-deep) 100%);
+-webkit-background-clip:text;
+background-clip:text;
+color:var(--gold);
+-webkit-text-fill-color:transparent;
+
+filter:drop-shadow(0 2px 14px rgba(212,175,55,.25));
+
+display:inline-block;
 
 }
 
 .section-title p{
 
+font-family:var(--font-body);
+
 color:#999;
+
+margin-top:6px;
+
+}
+
+#categoryTitle{
+
+font-family:var(--font-display);
+
+font-weight:700;
+
+letter-spacing:1.5px;
+
+background:linear-gradient(135deg, var(--gold2) 0%, var(--gold) 55%, var(--gold-deep) 100%);
+-webkit-background-clip:text;
+background-clip:text;
+color:var(--gold);
+-webkit-text-fill-color:transparent;
+
+filter:drop-shadow(0 2px 14px rgba(212,175,55,.25));
 
 }
 
@@ -386,9 +488,23 @@ rgba(0,0,0,.95)
 
 margin:0;
 
-font-size:25px;
+font-family:var(--font-display);
+
+font-size:24px;
 
 font-weight:700;
+
+letter-spacing:1.5px;
+
+text-transform:uppercase;
+
+background:linear-gradient(135deg, var(--gold2) 0%, var(--gold) 55%, var(--gold-deep) 100%);
+-webkit-background-clip:text;
+background-clip:text;
+color:var(--gold);
+-webkit-text-fill-color:transparent;
+
+filter:drop-shadow(0 2px 10px rgba(0,0,0,.6));
 
 }
 
@@ -444,15 +560,33 @@ transform:scale(1.05);
 
 margin-bottom:10px;
 
-color:var(--gold);
+font-family:var(--font-body);
+
+font-size:12px;
+
+font-weight:600;
+
+letter-spacing:2px;
+
+text-transform:uppercase;
+
+color:var(--gold2);
 
 }
 
 .style-card h5{
 
+font-family:var(--font-display);
+
 font-size:20px;
 
+font-weight:600;
+
+letter-spacing:.5px;
+
 margin-bottom:20px;
+
+color:var(--text);
 
 }
 
@@ -466,6 +600,20 @@ background:#111;
 
 }
 
+.modal-header .modal-title{
+
+font-family:var(--font-display);
+
+letter-spacing:1px;
+
+background:linear-gradient(135deg, var(--gold2) 0%, var(--gold) 60%, var(--gold-deep) 100%);
+-webkit-background-clip:text;
+background-clip:text;
+color:var(--gold);
+-webkit-text-fill-color:transparent;
+
+}
+
 .modal-body{
 
 padding:35px;
@@ -475,6 +623,26 @@ padding:35px;
 #modalImage{
 
 border-radius:16px;
+
+}
+
+#modalCode.text-warning{
+
+font-family:var(--font-display)!important;
+
+letter-spacing:1.5px;
+
+color:var(--gold)!important;
+
+}
+
+#modalTitle{
+
+font-family:var(--font-body);
+
+font-weight:500;
+
+color:#ddd;
 
 }
 
@@ -526,6 +694,462 @@ color:#777;
 
 }
 
+/* ================= ADMIN PAGE SHELL ================= */
+
+.admin-page-body{
+
+min-height:100vh;
+
+}
+
+.admin-glow{
+
+position:relative;
+
+overflow-x:hidden;
+
+}
+
+.admin-glow::before{
+
+content:"";
+
+position:absolute;
+
+width:520px;
+height:520px;
+
+background:rgba(212,175,55,.10);
+
+border-radius:50%;
+
+filter:blur(160px);
+
+top:-180px;
+left:50%;
+
+transform:translateX(-50%);
+
+pointer-events:none;
+
+}
+
+.admin-glow::after{
+
+content:"";
+
+position:absolute;
+
+width:380px;
+height:380px;
+
+background:rgba(255,216,106,.06);
+
+border-radius:50%;
+
+filter:blur(140px);
+
+bottom:-140px;
+right:10%;
+
+pointer-events:none;
+
+}
+
+/* ================= ADMIN AUTH CARD ================= */
+
+.admin-auth-wrap{
+
+position:relative;
+
+z-index:1;
+
+padding:20px;
+
+}
+
+.admin-login-card{
+
+background:linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.015));
+
+border:1px solid var(--gold-line);
+
+border-radius:24px;
+
+padding:44px 38px 34px;
+
+text-align:center;
+
+backdrop-filter:blur(18px);
+
+box-shadow:
+0 25px 70px rgba(0,0,0,.55),
+0 0 0 1px rgba(255,255,255,.02) inset;
+
+}
+
+.admin-login-badge{
+
+width:84px;
+height:84px;
+
+margin:0 auto 18px;
+
+border-radius:50%;
+
+display:flex;
+
+align-items:center;
+
+justify-content:center;
+
+background:radial-gradient(circle at 30% 30%, rgba(212,175,55,.18), rgba(212,175,55,.03));
+
+border:1px solid var(--gold-line);
+
+box-shadow:0 10px 40px rgba(212,175,55,.18);
+
+}
+
+.admin-login-logo{
+
+width:100%;
+
+height:100%;
+
+object-fit:contain;
+
+padding:10px;
+
+}
+
+.admin-login-eyebrow{
+
+font-family:var(--font-body);
+
+font-size:11px;
+
+font-weight:600;
+
+letter-spacing:3px;
+
+text-transform:uppercase;
+
+color:var(--gold2);
+
+margin-bottom:8px;
+
+}
+
+.admin-login-title{
+
+font-family:var(--font-display);
+
+font-size:30px;
+
+font-weight:700;
+
+letter-spacing:2px;
+
+margin-bottom:10px;
+
+background:linear-gradient(135deg, var(--gold2) 0%, var(--gold) 55%, var(--gold-deep) 100%);
+-webkit-background-clip:text;
+background-clip:text;
+color:var(--gold);
+-webkit-text-fill-color:transparent;
+
+filter:drop-shadow(0 2px 14px rgba(212,175,55,.25));
+
+}
+
+.admin-login-subtitle{
+
+font-family:var(--font-body);
+
+font-size:14px;
+
+font-weight:300;
+
+color:var(--muted);
+
+max-width:320px;
+
+margin:0 auto 28px;
+
+line-height:1.5;
+
+}
+
+.admin-login-form{
+
+text-align:left;
+
+}
+
+.admin-field-label{
+
+font-family:var(--font-body);
+
+font-size:12px;
+
+font-weight:600;
+
+letter-spacing:1.5px;
+
+text-transform:uppercase;
+
+color:#c9c9c9;
+
+margin-bottom:8px;
+
+}
+
+.admin-input-group{
+
+position:relative;
+
+display:flex;
+
+align-items:center;
+
+}
+
+.admin-input-icon{
+
+position:absolute;
+
+left:16px;
+
+color:var(--gold2);
+
+font-size:15px;
+
+pointer-events:none;
+
+z-index:2;
+
+}
+
+.admin-input{
+
+background:#131313;
+
+border:1px solid rgba(255,255,255,.08);
+
+color:var(--text);
+
+height:52px;
+
+padding-left:46px;
+
+border-radius:12px;
+
+font-family:var(--font-body);
+
+transition:.25s;
+
+}
+
+.admin-input::placeholder{
+
+color:#5f5f5f;
+
+}
+
+.admin-input:focus{
+
+background:#131313;
+
+color:var(--text);
+
+border-color:var(--gold);
+
+box-shadow:0 0 0 3px rgba(212,175,55,.18);
+
+}
+
+#adminPassword.admin-input{
+
+padding-right:46px;
+
+}
+
+.admin-input-toggle{
+
+position:absolute;
+
+right:14px;
+
+background:none;
+
+border:none;
+
+color:#9a9a9a;
+
+font-size:16px;
+
+padding:4px;
+
+line-height:1;
+
+cursor:pointer;
+
+z-index:2;
+
+transition:.2s;
+
+}
+
+.admin-input-toggle:hover{
+
+color:var(--gold2);
+
+}
+
+.admin-login-error{
+
+font-family:var(--font-body);
+
+color:#ff6b6b;
+
+min-height:18px;
+
+}
+
+.admin-login-btn{
+
+height:52px;
+
+border-radius:12px;
+
+border:none;
+
+font-family:var(--font-body);
+
+font-weight:600;
+
+letter-spacing:1px;
+
+text-transform:uppercase;
+
+font-size:13px;
+
+color:#181205;
+
+background:linear-gradient(135deg, var(--gold2) 0%, var(--gold) 100%);
+
+box-shadow:0 15px 40px rgba(212,175,55,.28);
+
+transition:.3s;
+
+display:flex;
+
+align-items:center;
+
+justify-content:center;
+
+gap:8px;
+
+margin-top:6px;
+
+}
+
+.admin-login-btn:hover{
+
+transform:translateY(-2px);
+
+box-shadow:0 20px 50px rgba(212,175,55,.4);
+
+color:#181205;
+
+}
+
+.admin-login-footnote{
+
+margin:24px 0 0;
+
+font-family:var(--font-body);
+
+font-size:12px;
+
+color:#6f6f6f;
+
+letter-spacing:.5px;
+
+}
+
+/* ================= ADMIN — ACCESS DENIED ================= */
+
+.admin-denied-card{
+
+background:linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.015));
+
+border:1px solid rgba(255,107,107,.3);
+
+border-radius:24px;
+
+padding:44px 34px;
+
+backdrop-filter:blur(18px);
+
+box-shadow:0 25px 70px rgba(0,0,0,.55);
+
+}
+
+.admin-denied-icon{
+
+width:64px;
+height:64px;
+
+margin:0 auto 18px;
+
+border-radius:50%;
+
+display:flex;
+
+align-items:center;
+
+justify-content:center;
+
+background:rgba(255,107,107,.1);
+
+border:1px solid rgba(255,107,107,.3);
+
+color:#ff6b6b;
+
+font-size:26px;
+
+}
+
+.admin-denied-title{
+
+font-family:var(--font-display);
+
+font-size:22px;
+
+font-weight:700;
+
+letter-spacing:1px;
+
+color:#ff6b6b;
+
+margin-bottom:8px;
+
+}
+
+.admin-denied-text{
+
+font-family:var(--font-body);
+
+font-size:14px;
+
+color:var(--muted);
+
+margin:0;
+
+}
+
 /* ================= MOBILE ================= */
 
 @media(max-width:768px){
@@ -565,6 +1189,19 @@ width:150px;
 .modal-body{
 
 padding:20px;
+
+}
+
+.admin-login-card,
+.admin-denied-card{
+
+padding:34px 24px;
+
+}
+
+.admin-login-title{
+
+font-size:26px;
 
 }
 

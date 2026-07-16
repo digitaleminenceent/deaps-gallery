@@ -84,6 +84,30 @@ function createWatermarkedBlob(file, text) {
   });
 }
 
+// ---- TOAST NOTIFICATIONS ----
+function showToast(message, type = 'success') {
+  const container = document.getElementById('toastContainer');
+  const icon = type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill';
+  const bg = type === 'success' ? 'text-bg-success' : 'text-bg-danger';
+
+  const toastEl = document.createElement('div');
+  toastEl.className = `toast align-items-center ${bg} border-0`;
+  toastEl.setAttribute('role', 'alert');
+  toastEl.innerHTML = `
+    <div class="d-flex">
+      <div class="toast-body">
+        <i class="bi ${icon} me-2"></i>${message}
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  `;
+
+  container.appendChild(toastEl);
+  const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
+  toast.show();
+  toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+}
+
 const loginCard = document.getElementById('loginCard');
 const deniedCard = document.getElementById('deniedCard');
 const dashboard = document.getElementById('dashboard');
@@ -176,10 +200,163 @@ document.getElementById('imgFile').addEventListener('change', (e) => {
   reader.readAsDataURL(file);
 });
 
-// ---- UPLOAD IMAGE + ADD TO CATALOG ----
+// ---- HELPER: upload a new file (full-res + watermarked preview) and return URLs ----
+async function uploadImageFile(file, category) {
+  const watermarkedBlob = await createWatermarkedBlob(file, 'DEAPS');
+
+  const fileExt = file.name.split('.').pop();
+  const baseName = `${category}-${Date.now()}`;
+  const fullResFileName = `fullres-${baseName}.${fileExt}`;
+  const previewFileName = `preview-${baseName}.${fileExt}`;
+
+  const { error: fullResError } = await supabaseClient
+    .storage
+    .from('catalog-images')
+    .upload(fullResFileName, file);
+
+  if (fullResError) throw fullResError;
+
+  const { error: previewError } = await supabaseClient
+    .storage
+    .from('catalog-images')
+    .upload(previewFileName, watermarkedBlob, { contentType: file.type });
+
+  if (previewError) throw previewError;
+
+  const { data: previewUrlData } = supabaseClient
+    .storage
+    .from('catalog-images')
+    .getPublicUrl(previewFileName);
+
+  const { data: fullResUrlData } = supabaseClient
+    .storage
+    .from('catalog-images')
+    .getPublicUrl(fullResFileName);
+
+  return {
+    preview_url: previewUrlData.publicUrl,
+    full_res_url: fullResUrlData.publicUrl
+  };
+}
+
+// ---- RESET FORM BACK TO "ADD NEW" MODE ----
+function resetToAddMode() {
+  document.getElementById('imageForm').reset();
+  document.getElementById('editingId').value = '';
+  document.getElementById('imgPreview').style.display = 'none';
+  document.getElementById('imgPreview').src = '';
+  document.getElementById('imgPlaceholder').style.display = 'block';
+  document.getElementById('imgFile').required = false;
+  document.getElementById('imgChangeHint').style.display = 'none';
+  document.getElementById('formHeading').textContent = 'Tambah Gambar Katalog';
+  document.getElementById('uploadBtn').textContent = 'Upload & Tambah';
+  document.getElementById('duplicateBtn').style.display = 'none';
+  document.getElementById('cancelEditBtn').style.display = 'none';
+  window._editingOriginal = null;
+}
+
+// ---- LOAD AN EXISTING ITEM INTO THE FORM FOR EDITING ----
+function editImage(imageId) {
+  const record = window._imageData && window._imageData[imageId];
+  if (!record) return;
+
+  window._editingOriginal = record;
+
+  document.getElementById('editingId').value = record.id;
+  document.getElementById('imgTitle').value = record.title || '';
+  document.getElementById('imgCategory').value = record.category || '';
+  document.getElementById('imgDescription').value = record.description || '';
+  document.getElementById('imgAdminPrompt').value = record.admin_prompt || '';
+  document.getElementById('imgPrice').value = record.price || 0;
+
+  const preview = document.getElementById('imgPreview');
+  const placeholder = document.getElementById('imgPlaceholder');
+  preview.src = record.preview_url || '';
+  preview.style.display = record.preview_url ? 'block' : 'none';
+  placeholder.style.display = record.preview_url ? 'none' : 'block';
+
+  document.getElementById('imgFile').value = '';
+  document.getElementById('imgFile').required = false;
+  document.getElementById('imgChangeHint').style.display = 'block';
+
+  document.getElementById('formHeading').textContent = `Edit Gambar Katalog — ${record.style_code || ''}`;
+  document.getElementById('uploadBtn').textContent = 'Save Changes';
+  document.getElementById('duplicateBtn').style.display = 'inline-block';
+  document.getElementById('cancelEditBtn').style.display = 'inline-block';
+
+  document.getElementById('imageForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ---- CANCEL EDIT BUTTON ----
+document.getElementById('cancelEditBtn').addEventListener('click', () => {
+  resetToAddMode();
+});
+
+// ---- DUPLICATE BUTTON: creates a new catalog entry based on the item currently in the form ----
+document.getElementById('duplicateBtn').addEventListener('click', async () => {
+  const original = window._editingOriginal;
+  if (!original) return;
+
+  const title = document.getElementById('imgTitle').value;
+  const category = document.getElementById('imgCategory').value;
+  const description = document.getElementById('imgDescription').value;
+  const adminPrompt = document.getElementById('imgAdminPrompt').value;
+  const price = parseFloat(document.getElementById('imgPrice').value) || 0;
+  const file = document.getElementById('imgFile').files[0];
+  const errorBox = document.getElementById('imageFormError');
+  const duplicateBtn = document.getElementById('duplicateBtn');
+
+  errorBox.textContent = '';
+  duplicateBtn.disabled = true;
+  duplicateBtn.innerHTML = 'Duplicating...';
+
+  try {
+    const styleCode = await generateStyleCode(category);
+
+    let imageUrls;
+    if (file) {
+      imageUrls = await uploadImageFile(file, category);
+    } else {
+      imageUrls = {
+        preview_url: original.preview_url,
+        full_res_url: original.full_res_url
+      };
+    }
+
+    const { error: insertError } = await supabaseClient
+      .from('images')
+      .insert({
+        title,
+        category,
+        description,
+        admin_prompt: adminPrompt,
+        price,
+        style_code: styleCode,
+        preview_url: imageUrls.preview_url,
+        full_res_url: imageUrls.full_res_url,
+        is_active: true
+      });
+
+    if (insertError) throw insertError;
+
+    resetToAddMode();
+    showToast(`Item berjaya diduplicate! Style Code baru: ${styleCode}`);
+    loadCatalog();
+
+  } catch (err) {
+    errorBox.textContent = err.message;
+    showToast('Gagal duplicate: ' + err.message, 'danger');
+  } finally {
+    duplicateBtn.disabled = false;
+    duplicateBtn.innerHTML = '<i class="bi bi-files"></i> Duplicate';
+  }
+});
+
+// ---- UPLOAD IMAGE + ADD TO CATALOG (or SAVE CHANGES when editing) ----
 document.getElementById('imageForm').addEventListener('submit', async (e) => {
   e.preventDefault();
 
+  const editingId = document.getElementById('editingId').value;
   const title = document.getElementById('imgTitle').value;
   const category = document.getElementById('imgCategory').value;
   const description = document.getElementById('imgDescription').value;
@@ -191,82 +368,74 @@ document.getElementById('imageForm').addEventListener('submit', async (e) => {
 
   errorBox.textContent = '';
 
-  if (!file) {
+  if (!editingId && !file) {
     errorBox.textContent = 'Sila pilih gambar.';
     return;
   }
 
   uploadBtn.disabled = true;
-  uploadBtn.textContent = 'Uploading...';
+  uploadBtn.textContent = editingId ? 'Saving...' : 'Uploading...';
 
   try {
-    // Generate style code for this category
-    const styleCode = await generateStyleCode(category);
-
-    // Create watermarked version for public preview
-    const watermarkedBlob = await createWatermarkedBlob(file, 'DEAPS');
-
-    const fileExt = file.name.split('.').pop();
-    const baseName = `${category}-${Date.now()}`;
-    const fullResFileName = `fullres-${baseName}.${fileExt}`;
-    const previewFileName = `preview-${baseName}.${fileExt}`;
-
-    // Upload original (full-res, unwatermarked)
-    const { error: fullResError } = await supabaseClient
-      .storage
-      .from('catalog-images')
-      .upload(fullResFileName, file);
-
-    if (fullResError) throw fullResError;
-
-    // Upload watermarked version (public preview)
-    const { error: previewError } = await supabaseClient
-      .storage
-      .from('catalog-images')
-      .upload(previewFileName, watermarkedBlob, { contentType: file.type });
-
-    if (previewError) throw previewError;
-
-    // Get public URLs
-    const { data: previewUrlData } = supabaseClient
-      .storage
-      .from('catalog-images')
-      .getPublicUrl(previewFileName);
-
-    const { data: fullResUrlData } = supabaseClient
-      .storage
-      .from('catalog-images')
-      .getPublicUrl(fullResFileName);
-
-    // Insert into images table
-    const { error: insertError } = await supabaseClient
-      .from('images')
-      .insert({
+    if (editingId) {
+      // ---- SAVE CHANGES (EDIT MODE) ----
+      const updatePayload = {
         title,
         category,
         description,
         admin_prompt: adminPrompt,
-        price,
-        style_code: styleCode,
-        preview_url: previewUrlData.publicUrl,
-        full_res_url: fullResUrlData.publicUrl,
-        is_active: true
-      });
+        price
+      };
 
-    if (insertError) throw insertError;
+      if (file) {
+        const imageUrls = await uploadImageFile(file, category);
+        updatePayload.preview_url = imageUrls.preview_url;
+        updatePayload.full_res_url = imageUrls.full_res_url;
+      }
 
-    document.getElementById('imageForm').reset();
-    document.getElementById('imgPreview').style.display = 'none';
-    document.getElementById('imgPreview').src = '';
-    document.getElementById('imgPlaceholder').style.display = 'block';
-    alert(`Berjaya! Style Code: ${styleCode}`);
-    loadCatalog();
+      const { error: updateError } = await supabaseClient
+        .from('images')
+        .update(updatePayload)
+        .eq('id', editingId);
+
+      if (updateError) throw updateError;
+
+      showToast('Perubahan berjaya disimpan!');
+      resetToAddMode();
+      loadCatalog();
+
+    } else {
+      // ---- ADD NEW ITEM ----
+      const styleCode = await generateStyleCode(category);
+      const imageUrls = await uploadImageFile(file, category);
+
+      const { error: insertError } = await supabaseClient
+        .from('images')
+        .insert({
+          title,
+          category,
+          description,
+          admin_prompt: adminPrompt,
+          price,
+          style_code: styleCode,
+          preview_url: imageUrls.preview_url,
+          full_res_url: imageUrls.full_res_url,
+          is_active: true
+        });
+
+      if (insertError) throw insertError;
+
+      resetToAddMode();
+      showToast(`Berjaya ditambah! Style Code: ${styleCode}`);
+      loadCatalog();
+    }
 
   } catch (err) {
     errorBox.textContent = err.message;
+    showToast('Gagal simpan: ' + err.message, 'danger');
   } finally {
     uploadBtn.disabled = false;
-    uploadBtn.textContent = 'Upload & Tambah';
+    uploadBtn.textContent = editingId ? 'Save Changes' : 'Upload & Tambah';
   }
 });
 
@@ -289,10 +458,12 @@ async function loadCatalog() {
     return;
   }
 
-  // Store prompts keyed by id to avoid quote-escaping issues in onclick
+  // Store full records + prompts keyed by id to avoid quote-escaping issues in onclick
   window._imagePrompts = {};
+  window._imageData = {};
   images.forEach(img => {
     window._imagePrompts[img.id] = img.admin_prompt || '';
+    window._imageData[img.id] = img;
   });
 
   container.innerHTML = images.map(img => `
@@ -304,6 +475,9 @@ async function loadCatalog() {
           <p class="small mb-1">${img.title}</p>
           <p class="small text-secondary mb-1">${img.category}</p>
           <p class="small mb-2">RM${img.price}</p>
+          <button class="btn btn-sm btn-outline-light w-100 mb-2" onclick="editImage('${img.id}')">
+            <i class="bi bi-pencil"></i> Edit
+          </button>
           <button class="btn btn-sm btn-outline-warning w-100 mb-2" onclick="copyPrompt('${img.id}')">
             <i class="bi bi-clipboard"></i> Copy Prompt
           </button>
@@ -325,9 +499,9 @@ async function copyPrompt(imageId) {
 
   try {
     await navigator.clipboard.writeText(prompt);
-    alert('Prompt disalin ke clipboard!');
+    showToast('Prompt disalin ke clipboard!');
   } catch (err) {
-    alert('Gagal salin: ' + err.message);
+    showToast('Gagal salin: ' + err.message, 'danger');
   }
 }
 
@@ -341,10 +515,16 @@ async function deleteImage(imageId) {
     .eq('id', imageId);
 
   if (error) {
-    alert('Error: ' + error.message);
+    showToast('Error: ' + error.message, 'danger');
     return;
   }
 
+  // If the item being deleted was open in the edit form, reset the form
+  if (document.getElementById('editingId').value === imageId) {
+    resetToAddMode();
+  }
+
+  showToast('Gambar berjaya dipadam!');
   loadCatalog();
 }
 

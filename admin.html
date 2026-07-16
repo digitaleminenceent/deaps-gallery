@@ -25,6 +25,9 @@
   </div>
 </nav>
 
+<!-- TOAST NOTIFICATIONS -->
+<div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer" style="z-index: 1080;"></div>
+
 <div class="container py-5">
 
   <!-- LOGIN CARD -->
@@ -56,9 +59,10 @@
   <!-- DASHBOARD -->
   <div id="dashboard" style="display:none;">
 
-    <h2 class="mb-4">Tambah Gambar Katalog</h2>
+    <h2 class="mb-4" id="formHeading">Tambah Gambar Katalog</h2>
 
     <form id="imageForm" class="mb-5">
+      <input type="hidden" id="editingId" value="">
       <div class="row g-4">
 
         <!-- LEFT: IMAGE PREVIEW / UPLOAD -->
@@ -72,7 +76,10 @@
               </div>
             </div>
           </label>
-          <input type="file" id="imgFile" class="d-none" accept="image/*" required>
+          <input type="file" id="imgFile" class="d-none" accept="image/*">
+          <p class="small text-secondary mt-2 mb-0" id="imgChangeHint" style="display:none;">
+            <i class="bi bi-info-circle"></i> Klik gambar di atas untuk tukar gambar. Jika tiada gambar baru dipilih, gambar sedia ada akan dikekalkan.
+          </p>
         </div>
 
         <!-- RIGHT: DETAILS -->
@@ -111,7 +118,15 @@
             <input type="number" id="imgPrice" class="form-control" step="0.01" value="0">
           </div>
           <div id="imageFormError" class="text-danger small mb-2"></div>
-          <button type="submit" class="btn btn-warning" id="uploadBtn">Upload & Tambah</button>
+          <div class="d-flex flex-wrap gap-2">
+            <button type="submit" class="btn btn-warning" id="uploadBtn">Upload & Tambah</button>
+            <button type="button" class="btn btn-outline-info" id="duplicateBtn" style="display:none;">
+              <i class="bi bi-files"></i> Duplicate
+            </button>
+            <button type="button" class="btn btn-outline-secondary" id="cancelEditBtn" style="display:none;">
+              <i class="bi bi-x-circle"></i> Cancel Edit
+            </button>
+          </div>
         </div>
 
       </div>

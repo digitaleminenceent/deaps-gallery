@@ -1,12 +1,12 @@
 // ======================================
-// DEAPS GALLERY.JS v2.0
+// DEAPS GALLERY.JS v3.0 (Supabase)
 // ======================================
 
 const params = new URLSearchParams(window.location.search);
 
 const currentCategory = params.get("category");
 
-const selectedStyle = params.get("style");
+const selectedStyle = params.get("style"); // now a Supabase image id (uuid)
 
 const galleryContainer = document.getElementById("galleryContainer");
 
@@ -34,10 +34,45 @@ advertising:"Advertising"
 categoryTitle.innerHTML =
 categoryName[currentCategory] || "Gallery";
 
-const currentData =
-catalog.filter(item=>item.category===currentCategory);
+let currentData = [];
 
-renderGallery(currentData);
+// ======================================
+// LOAD FROM SUPABASE
+// ======================================
+
+async function loadGallery() {
+
+  let query = supabaseClient
+    .from('images')
+    .select('id, title, description, category, preview_url, price, style_code')
+    .eq('is_active', true);
+
+  if (currentCategory) {
+    query = query.eq('category', currentCategory);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    galleryContainer.innerHTML = `
+      <div class="col-12 text-center py-5">
+        <h3>Error loading gallery</h3>
+      </div>
+    `;
+    console.error(error);
+    return;
+  }
+
+  currentData = data;
+
+  renderGallery(currentData);
+
+  if (selectedStyle) {
+    setTimeout(() => {
+      openStyle(selectedStyle);
+    }, 300);
+  }
+}
 
 // ======================================
 // RENDER
@@ -68,7 +103,7 @@ galleryContainer.innerHTML+=`
 <div class="style-card">
 
 <img
-src="${item.image}"
+src="${item.preview_url}"
 class="img-fluid"
 loading="lazy">
 
@@ -76,7 +111,7 @@ loading="lazy">
 
 <h6 class="text-warning">
 
-${item.id}
+${item.style_code || ''}
 
 </h6>
 
@@ -109,7 +144,7 @@ View Style
 }
 
 // ======================================
-// SEARCH
+// SEARCH (client-side over loaded category data)
 // ======================================
 
 if(searchInput){
@@ -120,15 +155,15 @@ const keyword=searchInput.value.toLowerCase();
 
 const filtered=currentData.filter(item=>
 
-item.id.toLowerCase().includes(keyword)
-
-||
-
 item.title.toLowerCase().includes(keyword)
 
 ||
 
-item.tags.join(" ").toLowerCase().includes(keyword)
+(item.description || '').toLowerCase().includes(keyword)
+
+||
+
+(item.style_code || '').toLowerCase().includes(keyword)
 
 );
 
@@ -144,40 +179,33 @@ renderGallery(filtered);
 
 function openStyle(id){
 
-const item=catalog.find(x=>x.id===id);
+const item=currentData.find(x=>x.id===id || x.style_code===id);
 
 if(!item) return;
 
-document.getElementById("modalImage").src=item.image;
+document.getElementById("modalImage").src=item.preview_url;
 
-document.getElementById("modalCode").innerHTML=item.id;
+document.getElementById("modalCode").innerHTML=item.style_code || '';
 
 document.getElementById("modalTitle").innerHTML=item.title;
 
 const tagBox=document.getElementById("modalTags");
 
-tagBox.innerHTML="";
-
-item.tags.forEach(tag=>{
-
-tagBox.innerHTML+=`
-<span class="badge bg-warning text-dark me-2 mb-2">
-${tag}
-</span>
+tagBox.innerHTML = `
+  <span class="badge bg-secondary me-2 mb-2">${categoryName[item.category] || item.category || ''}</span>
+  <h4 class="text-warning mt-2 mb-2">RM${item.price}</h4>
+  ${item.description ? `<p class="text-secondary mb-0">${item.description}</p>` : ''}
 `;
-
-});
 
 const phone="60164250790";
 
 const message=
 `Hi DEAPS 👋
 
-Saya berminat dengan Style Code:
+Saya berminat dengan:
 
-${item.id}
-
-${item.title}`;
+${item.style_code || ''} - ${item.title}
+RM${item.price}`;
 
 document.getElementById("bookBtn").onclick=function(){
 
@@ -202,17 +230,9 @@ modal.show();
 }
 
 // ======================================
-// AUTO OPEN
+// INIT
 // ======================================
 
-if(selectedStyle){
+loadGallery();
 
-setTimeout(()=>{
-
-openStyle(selectedStyle);
-
-},300);
-
-}
-
-console.log("Gallery Loaded Successfully");
+console.log("Gallery Loaded Successfully (Supabase)");

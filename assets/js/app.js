@@ -1,5 +1,5 @@
 // ======================================
-// DEAPS APP.JS v2.0
+// DEAPS APP.JS v3.0 (Supabase)
 // ======================================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -41,7 +41,7 @@ function initSearch() {
 
 }
 
-function searchStyle() {
+async function searchStyle() {
 
     const input = document.querySelector(".search-box input");
 
@@ -55,44 +55,62 @@ function searchStyle() {
 
     }
 
-    const result = catalog.find(item =>
+    // Try exact style code match first
+    let { data, error } = await supabaseClient
+        .from('images')
+        .select('id, title, category, style_code')
+        .eq('is_active', true)
+        .ilike('style_code', keyword)
+        .limit(1);
 
-        item.id.toLowerCase() === keyword ||
+    // Fallback: title contains keyword
+    if (!data || data.length === 0) {
+        const fallback = await supabaseClient
+            .from('images')
+            .select('id, title, category, style_code')
+            .eq('is_active', true)
+            .ilike('title', `%${keyword}%`)
+            .limit(1);
 
-        item.title.toLowerCase().includes(keyword) ||
-
-        item.tags.join(" ").toLowerCase().includes(keyword)
-
-    );
-
-    if (result) {
-
-        window.location.href =
-            `gallery.html?category=${result.category}&style=${result.id}`;
-
+        data = fallback.data;
+        error = fallback.error;
     }
 
-    else {
+    if (error || !data || data.length === 0) {
 
         alert("Style not found.");
 
+        return;
+
     }
+
+    const result = data[0];
+
+    window.location.href =
+        `gallery.html?category=${result.category}&style=${result.style_code}`;
 
 }
 
 // ======================================
-// FEATURED
+// FEATURED (newest 4 active images)
 // ======================================
 
-function loadFeatured() {
+async function loadFeatured() {
 
     const box = document.getElementById("featuredStyles");
 
     if (!box) return;
 
-    const featured = catalog.filter(item => item.featured);
+    const { data, error } = await supabaseClient
+        .from('images')
+        .select('id, title, category, preview_url, style_code')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(4);
 
-    featured.forEach(item => {
+    if (error || !data) return;
+
+    data.forEach(item => {
 
         box.innerHTML += `
 
@@ -101,14 +119,14 @@ function loadFeatured() {
 <div class="style-card">
 
 <img
-src="${item.image}"
+src="${item.preview_url}"
 class="img-fluid">
 
 <div class="p-3">
 
 <h6 class="text-warning">
 
-${item.id}
+${item.style_code || ''}
 
 </h6>
 
@@ -120,7 +138,7 @@ ${item.title}
 
 <a
 
-href="gallery.html?category=${item.category}&style=${item.id}"
+href="gallery.html?category=${item.category}&style=${item.style_code}"
 
 class="btn btn-warning w-100">
 
@@ -141,18 +159,25 @@ View Style
 }
 
 // ======================================
-// NEW ARRIVAL
+// NEW ARRIVAL (next 4 newest active images)
 // ======================================
 
-function loadNewest() {
+async function loadNewest() {
 
     const box = document.getElementById("newStyles");
 
     if (!box) return;
 
-    const newest = catalog.filter(item => item.newest);
+    const { data, error } = await supabaseClient
+        .from('images')
+        .select('id, title, category, preview_url, style_code')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .range(4, 7);
 
-    newest.forEach(item => {
+    if (error || !data) return;
+
+    data.forEach(item => {
 
         box.innerHTML += `
 
@@ -161,14 +186,14 @@ function loadNewest() {
 <div class="style-card">
 
 <img
-src="${item.image}"
+src="${item.preview_url}"
 class="img-fluid">
 
 <div class="p-3">
 
 <h6 class="text-warning">
 
-${item.id}
+${item.style_code || ''}
 
 </h6>
 
@@ -180,7 +205,7 @@ ${item.title}
 
 <a
 
-href="gallery.html?category=${item.category}&style=${item.id}"
+href="gallery.html?category=${item.category}&style=${item.style_code}"
 
 class="btn btn-outline-warning w-100">
 
@@ -200,4 +225,4 @@ View Style
 
 }
 
-console.log("DEAPS App Loaded");
+console.log("DEAPS App Loaded (Supabase)");

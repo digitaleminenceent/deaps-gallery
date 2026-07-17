@@ -310,6 +310,7 @@ function resetToAddMode() {
   document.getElementById('imgPlaceholder').style.display = 'block';
   document.getElementById('imgFile').required = false;
   document.getElementById('imgChangeHint').style.display = 'none';
+  document.getElementById('imgFeatured').checked = false;
   document.getElementById('formHeading').textContent = 'Tambah Gambar Katalog';
   document.getElementById('uploadBtn').textContent = 'Upload & Tambah';
   document.getElementById('duplicateBtn').style.display = 'none';
@@ -330,6 +331,7 @@ function editImage(imageId) {
   document.getElementById('imgDescription').value = record.description || '';
   document.getElementById('imgAdminPrompt').value = record.admin_prompt || '';
   document.getElementById('imgPrice').value = record.price || 0;
+  document.getElementById('imgFeatured').checked = record.is_featured || false;
 
   loadSubcategoryDropdown().then(() => {
     document.getElementById('imgSubcategory').value = record.subcategory_id || '';
@@ -368,6 +370,7 @@ document.getElementById('duplicateBtn').addEventListener('click', async () => {
   const description = document.getElementById('imgDescription').value;
   const adminPrompt = document.getElementById('imgAdminPrompt').value;
   const price = parseFloat(document.getElementById('imgPrice').value) || 0;
+  const isFeatured = document.getElementById('imgFeatured').checked;
   const file = document.getElementById('imgFile').files[0];
   const errorBox = document.getElementById('imageFormError');
   const duplicateBtn = document.getElementById('duplicateBtn');
@@ -402,6 +405,7 @@ document.getElementById('duplicateBtn').addEventListener('click', async () => {
         description,
         admin_prompt: adminPrompt,
         price,
+        is_featured: isFeatured,
         style_code: styleCode,
         preview_url: imageUrls.preview_url,
         full_res_url: imageUrls.full_res_url,
@@ -433,6 +437,7 @@ document.getElementById('imageForm').addEventListener('submit', async (e) => {
   const description = document.getElementById('imgDescription').value;
   const adminPrompt = document.getElementById('imgAdminPrompt').value;
   const price = parseFloat(document.getElementById('imgPrice').value) || 0;
+  const isFeatured = document.getElementById('imgFeatured').checked;
   const file = document.getElementById('imgFile').files[0];
   const errorBox = document.getElementById('imageFormError');
   const uploadBtn = document.getElementById('uploadBtn');
@@ -460,7 +465,8 @@ document.getElementById('imageForm').addEventListener('submit', async (e) => {
         subcategory_id: subcategoryId,
         description,
         admin_prompt: adminPrompt,
-        price
+        price,
+        is_featured: isFeatured
       };
 
       if (file) {
@@ -495,6 +501,7 @@ document.getElementById('imageForm').addEventListener('submit', async (e) => {
           description,
           admin_prompt: adminPrompt,
           price,
+          is_featured: isFeatured,
           style_code: styleCode,
           preview_url: imageUrls.preview_url,
           full_res_url: imageUrls.full_res_url,
@@ -549,7 +556,7 @@ async function loadCatalog() {
       <div class="card bg-secondary bg-opacity-25 border-secondary h-100">
         <img src="${img.preview_url}" class="card-img-top" style="height:150px; object-fit:cover;">
         <div class="card-body">
-          <h6 class="card-title text-warning mb-1">${img.style_code || ''}</h6>
+          <h6 class="card-title text-warning mb-1">${img.style_code || ''} ${img.is_featured ? '<i class="bi bi-star-fill"></i>' : ''}</h6>
           <p class="small mb-1">${img.title}</p>
           <p class="small text-secondary mb-1">${img.category}</p>
           <p class="small mb-2">RM${img.price}</p>

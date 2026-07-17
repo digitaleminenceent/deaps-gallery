@@ -172,7 +172,6 @@ async function loadCategories() {
 
   allSubcategoriesFlat = subData || [];
 
-  // Get all image category_id/subcategory_id in ONE query, count client-side
   const { data: imageRefs } = await supabaseClient
     .from('images')
     .select('category_id, subcategory_id');
@@ -673,17 +672,22 @@ function resetSubcatForm() {
   document.getElementById('subcatFormError').textContent = '';
 }
 
+// FIX: this used to also set .textContent on the parent <h5 id="subcategoryModalTitle">,
+// which wiped out its nested <span id="subcatCategoryName"> child. The next line then tried
+// getElementById('subcatCategoryName') on a now-missing node, throwing
+// "Cannot set properties of null (setting 'textContent')" and crashing before the modal opened.
+// Fix: only set text on the span; the static "Add Subcategory —" label stays in the HTML.
 function openAddSubcategory(categoryId) {
   const cat = allCategories.find(c => c.id === categoryId);
   if (!cat) return;
 
   resetSubcatForm();
-  document.getElementById('subcategoryModalTitle').textContent = 'Add Subcategory — ' + cat.name;
   document.getElementById('subcatCategoryName').textContent = cat.name;
   document.getElementById('subcatCategoryId').value = cat.id;
   subcategoryModal.show();
 }
 
+// FIX: same issue as openAddSubcategory() — removed the line overwriting subcategoryModalTitle.textContent.
 function editSubcategory(id) {
   const sub = findSubcat(id);
   if (!sub) return;
@@ -691,7 +695,6 @@ function editSubcategory(id) {
   const cat = allCategories.find(c => c.id === sub.category_id);
 
   resetSubcatForm();
-  document.getElementById('subcategoryModalTitle').textContent = 'Edit Subcategory — ' + (cat ? cat.name : '');
   document.getElementById('subcatCategoryName').textContent = cat ? cat.name : '';
   document.getElementById('subcatId').value = sub.id;
   document.getElementById('subcatCategoryId').value = sub.category_id;

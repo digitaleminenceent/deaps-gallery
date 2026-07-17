@@ -6,11 +6,66 @@ document.addEventListener("DOMContentLoaded", () => {
 
     initSearch();
 
+    loadCategories();
+
     loadFeatured();
 
     loadNewest();
 
 });
+
+// ======================================
+// CATEGORIES (dynamic, from Supabase)
+// ======================================
+
+async function loadCategories() {
+
+    const grid = document.getElementById("categoryGrid");
+
+    if (!grid) return;
+
+    const { data, error } = await supabaseClient
+        .from('categories')
+        .select('*')
+        .eq('is_active', true)
+        .eq('show_on_home', true)
+        .order('display_order', { ascending: true });
+
+    if (error || !data || !data.length) {
+        grid.innerHTML = `<p class="text-secondary text-center w-100">Tiada kategori tersedia.</p>`;
+        return;
+    }
+
+    grid.innerHTML = data.map(cat => `
+
+<div class="col-lg-3 col-md-4 col-6">
+
+<a href="gallery.html?category=${cat.slug}" class="text-decoration-none">
+
+<div class="category-card">
+
+${cat.banner_url
+    ? `<img src="${cat.banner_url}">`
+    : `<div style="width:100%; height:100%; background:${cat.color || '#D4AF37'}22; display:flex; align-items:center; justify-content:center;">
+         <i class="bi ${cat.icon || 'bi-folder'}" style="font-size:3rem; color:${cat.color || '#D4AF37'};"></i>
+       </div>`
+}
+
+<div class="overlay">
+
+<h4>${cat.name}</h4>
+
+</div>
+
+</div>
+
+</a>
+
+</div>
+
+`).join('');
+
+}
 
 // ======================================
 // SEARCH

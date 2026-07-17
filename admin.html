@@ -21,7 +21,10 @@
       <img src="assets/logo.png" alt="DEAPS" style="height:36px;">
       <span>Digital Eminence AI Photography Studio Admin</span>
     </a>
-    <div id="authArea"></div>
+    <div class="d-flex align-items-center gap-2">
+      <a href="category-management.html" class="btn btn-outline-warning btn-sm"><i class="bi bi-tags"></i> Categories</a>
+      <div id="authArea"></div>
+    </div>
   </div>
 </nav>
 
@@ -120,18 +123,13 @@
           <div class="mb-3">
             <label class="form-label">Category</label>
             <select id="imgCategory" class="form-select" required>
-              <option value="female">Female Portrait</option>
-              <option value="male">Male Portrait</option>
-              <option value="fashion">Fashion</option>
-              <option value="beauty">Beauty</option>
-              <option value="sports">Sports</option>
-              <option value="travel">Travel</option>
-              <option value="fantasy">Fantasy</option>
-              <option value="product">Product</option>
-              <option value="automotive">Automotive</option>
-              <option value="food">Food</option>
-              <option value="interior">Interior</option>
-              <option value="advertising">Advertising</option>
+              <option value="">Loading categories...</option>
+            </select>
+          </div>
+          <div class="mb-3" id="subcategoryWrap" style="display:none;">
+            <label class="form-label">Subcategory</label>
+            <select id="imgSubcategory" class="form-select">
+              <option value="">— None —</option>
             </select>
           </div>
           <div class="mb-3">

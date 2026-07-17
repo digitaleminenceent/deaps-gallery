@@ -1,22 +1,68 @@
 // assets/js/admin.js
 
-const CATEGORY_PREFIX = {
-  female: 'FP',
-  male: 'MP',
-  fashion: 'FA',
-  beauty: 'BE',
-  sports: 'SP',
-  travel: 'TR',
-  fantasy: 'FY',
-  product: 'PR',
-  automotive: 'AU',
-  food: 'FD',
-  interior: 'IN',
-  advertising: 'AD'
-};
+let allCategoriesCache = [];
 
+// ---- LOAD CATEGORIES INTO DROPDOWN ----
+async function loadCategoryDropdown() {
+  const { data, error } = await supabaseClient
+    .from('categories')
+    .select('*')
+    .eq('is_active', true)
+    .order('display_order', { ascending: true });
+
+  const select = document.getElementById('imgCategory');
+
+  if (error || !data) {
+    select.innerHTML = `<option value="">Error loading categories</option>`;
+    return;
+  }
+
+  allCategoriesCache = data;
+
+  select.innerHTML = data.map(cat =>
+    `<option value="${cat.slug}" data-id="${cat.id}" data-prefix="${cat.code_prefix || ''}">${cat.name}</option>`
+  ).join('');
+
+  await loadSubcategoryDropdown();
+}
+
+// ---- LOAD SUBCATEGORIES FOR SELECTED CATEGORY ----
+async function loadSubcategoryDropdown() {
+  const catSelect = document.getElementById('imgCategory');
+  const selectedOption = catSelect.options[catSelect.selectedIndex];
+  const categoryId = selectedOption ? selectedOption.dataset.id : null;
+  const wrap = document.getElementById('subcategoryWrap');
+  const subSelect = document.getElementById('imgSubcategory');
+
+  if (!categoryId) {
+    wrap.style.display = 'none';
+    return;
+  }
+
+  const { data, error } = await supabaseClient
+    .from('subcategories')
+    .select('*')
+    .eq('category_id', categoryId)
+    .eq('is_active', true)
+    .order('display_order', { ascending: true });
+
+  if (error || !data || !data.length) {
+    wrap.style.display = 'none';
+    subSelect.innerHTML = `<option value="">— None —</option>`;
+    return;
+  }
+
+  subSelect.innerHTML = `<option value="">— None —</option>` +
+    data.map(sub => `<option value="${sub.id}">${sub.name}</option>`).join('');
+  wrap.style.display = 'block';
+}
+
+document.getElementById('imgCategory').addEventListener('change', loadSubcategoryDropdown);
+
+// ---- GENERATE STYLE CODE (uses code_prefix from categories table) ----
 async function generateStyleCode(category) {
-  const prefix = CATEGORY_PREFIX[category] || 'XX';
+  const catRow = allCategoriesCache.find(c => c.slug === category);
+  const prefix = (catRow && catRow.code_prefix) ? catRow.code_prefix : 'XX';
 
   const { data, error } = await supabaseClient
     .from('images')
@@ -156,6 +202,7 @@ async function checkAdminAccess() {
     checkAdminAccess();
   });
 
+  loadCategoryDropdown();
   loadCatalog();
 }
 
@@ -284,6 +331,10 @@ function editImage(imageId) {
   document.getElementById('imgAdminPrompt').value = record.admin_prompt || '';
   document.getElementById('imgPrice').value = record.price || 0;
 
+  loadSubcategoryDropdown().then(() => {
+    document.getElementById('imgSubcategory').value = record.subcategory_id || '';
+  });
+
   const preview = document.getElementById('imgPreview');
   const placeholder = document.getElementById('imgPlaceholder');
   preview.src = record.preview_url || '';
@@ -338,11 +389,16 @@ document.getElementById('duplicateBtn').addEventListener('click', async () => {
       };
     }
 
+    const catRow = allCategoriesCache.find(c => c.slug === category);
+    const subcategoryId = document.getElementById('imgSubcategory').value || null;
+
     const { error: insertError } = await supabaseClient
       .from('images')
       .insert({
         title,
         category,
+        category_id: catRow ? catRow.id : null,
+        subcategory_id: subcategoryId,
         description,
         admin_prompt: adminPrompt,
         price,
@@ -392,11 +448,16 @@ document.getElementById('imageForm').addEventListener('submit', async (e) => {
   uploadBtn.textContent = editingId ? 'Saving...' : 'Uploading...';
 
   try {
+    const catRow = allCategoriesCache.find(c => c.slug === category);
+    const subcategoryId = document.getElementById('imgSubcategory').value || null;
+
     if (editingId) {
       // ---- SAVE CHANGES (EDIT MODE) ----
       const updatePayload = {
         title,
         category,
+        category_id: catRow ? catRow.id : null,
+        subcategory_id: subcategoryId,
         description,
         admin_prompt: adminPrompt,
         price
@@ -429,6 +490,8 @@ document.getElementById('imageForm').addEventListener('submit', async (e) => {
         .insert({
           title,
           category,
+          category_id: catRow ? catRow.id : null,
+          subcategory_id: subcategoryId,
           description,
           admin_prompt: adminPrompt,
           price,

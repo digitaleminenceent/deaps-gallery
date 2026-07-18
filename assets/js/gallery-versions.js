@@ -2,9 +2,13 @@
 // Version History module — reusable from Gallery Management
 
 let gvCurrentImageId = null;
+let gvCurrentImageTitle = null;
 let gvVersions = [];
 let gvCompareSelection = [];
 let gvModal = null;
+let gvPreviewModalInstance = null;
+let gvLoadedCount = 0;
+const GV_PAGE_SIZE = 10;
 
 const GV_FIELD_LABELS = {
   title: 'Title',
@@ -35,7 +39,10 @@ function gvFormatValue(field, value) {
 
 async function gvOpenHistory(imageId, imageTitle) {
   gvCurrentImageId = imageId;
+  gvCurrentImageTitle = imageTitle;
   gvCompareSelection = [];
+  gvVersions = [];
+  gvLoadedCount = 0;
 
   if (!gvModal) gvModal = new bootstrap.Modal(document.getElementById('gvHistoryModal'));
 
@@ -44,23 +51,28 @@ async function gvOpenHistory(imageId, imageTitle) {
   document.getElementById('gvCompareArea').innerHTML = '';
 
   gvModal.show();
+  await gvLoadMoreVersions();
+}
 
+async function gvLoadMoreVersions() {
   const { data, error } = await supabaseClient
     .from('image_versions')
     .select('*')
-    .eq('image_id', imageId)
-    .order('version_number', { ascending: false });
+    .eq('image_id', gvCurrentImageId)
+    .order('version_number', { ascending: false })
+    .range(gvLoadedCount, gvLoadedCount + GV_PAGE_SIZE - 1);
 
   if (error) {
     document.getElementById('gvVersionList').innerHTML = `<p class="text-danger small">${error.message}</p>`;
     return;
   }
 
-  gvVersions = data || [];
-  gvRenderList();
+  gvVersions = gvVersions.concat(data || []);
+  gvLoadedCount = gvVersions.length;
+  gvRenderList(data ? data.length === GV_PAGE_SIZE : false);
 }
 
-function gvRenderList() {
+function gvRenderList(mayHaveMore) {
   const container = document.getElementById('gvVersionList');
 
   if (!gvVersions.length) {
@@ -78,7 +90,8 @@ function gvRenderList() {
           <span class="small text-secondary">${new Date(v.created_at).toLocaleString('en-MY')}</span>
         </div>
         <p class="small text-secondary mb-1">by ${v.admin_email || 'unknown'}</p>
-        <p class="small mb-2">Changed: ${(v.changed_fields || []).map(f => GV_FIELD_LABELS[f] || f).join(', ') || '—'}</p>
+        <p class="small mb-1">Changed: ${(v.changed_fields || []).map(f => GV_FIELD_LABELS[f] || f).join(', ') || '—'}</p>
+        ${v.notes ? `<p class="small text-warning mb-2"><i class="bi bi-sticky"></i> ${v.notes}</p>` : ''}
         <div class="d-flex gap-2">
           <button class="btn btn-sm btn-outline-info" onclick="gvViewVersion(${v.version_number})"><i class="bi bi-eye"></i> View</button>
           <button class="btn btn-sm btn-outline-warning" onclick="gvRestoreVersion(${v.version_number})"><i class="bi bi-arrow-counterclockwise"></i> Restore This Version</button>
@@ -86,25 +99,25 @@ function gvRenderList() {
       </div>
     </div>
   `).join('') + `
-    <div class="text-center mt-2">
+    <div class="text-center mt-2 mb-2">
       <button class="btn btn-sm btn-outline-light" onclick="gvCompareSelected()" ${gvCompareSelection.length !== 2 ? 'disabled' : ''}>
         <i class="bi bi-arrow-left-right"></i> Compare Selected (${gvCompareSelection.length}/2)
       </button>
     </div>
+    ${mayHaveMore ? `<div class="text-center"><button class="btn btn-sm btn-outline-secondary" onclick="gvLoadMoreVersions()">Load More Versions</button></div>` : ''}
   `;
 }
 
 function gvToggleCompare(versionNumber, checked) {
   if (checked) {
     if (gvCompareSelection.length >= 2) {
-      // keep only the most recent selection to avoid confusing 3-way state
       gvCompareSelection.shift();
     }
     gvCompareSelection.push(versionNumber);
   } else {
     gvCompareSelection = gvCompareSelection.filter(v => v !== versionNumber);
   }
-  gvRenderList();
+  gvRenderList(gvVersions.length >= GV_PAGE_SIZE);
 }
 
 function gvViewVersion(versionNumber) {
@@ -120,6 +133,7 @@ function gvViewVersion(versionNumber) {
 
   document.getElementById('gvCompareArea').innerHTML = `
     <h6 class="mt-3">Version ${v.version_number} — Full Details</h6>
+    ${v.notes ? `<p class="small text-warning"><i class="bi bi-sticky"></i> ${v.notes}</p>` : ''}
     <table class="table table-dark table-sm">${rows}</table>
   `;
 }
@@ -158,71 +172,106 @@ function versionValuesDifferGv(a, b) {
   return JSON.stringify(a === undefined ? null : a) !== JSON.stringify(b === undefined ? null : b);
 }
 
+// ---- RECOVERY PREVIEW MODAL (shared with Restore Version) ----
+function gvShowPreview({ title, bodyHtml, confirmLabel, onConfirm }) {
+  if (!gvPreviewModalInstance) gvPreviewModalInstance = new bootstrap.Modal(document.getElementById('gvPreviewModal'));
+
+  document.getElementById('gvPreviewTitle').textContent = title;
+  document.getElementById('gvPreviewBody').innerHTML = bodyHtml;
+
+  const btn = document.getElementById('gvPreviewConfirmBtn');
+  btn.textContent = confirmLabel;
+  const freshBtn = btn.cloneNode(true);
+  btn.parentNode.replaceChild(freshBtn, btn);
+  freshBtn.addEventListener('click', async () => {
+    const noteInput = document.getElementById('gvRestoreNote');
+    const note = noteInput ? noteInput.value.trim() : '';
+    gvPreviewModalInstance.hide();
+    await onConfirm(note);
+  });
+
+  gvPreviewModalInstance.show();
+}
+
 async function gvRestoreVersion(versionNumber) {
   const version = gvVersions.find(v => v.version_number === versionNumber);
   if (!version) return;
 
-  if (!confirm(`Restore Version ${versionNumber}? Keadaan semasa akan disimpan sebagai version baru sebelum restore berlaku.`)) return;
+  const previewRows = Object.keys(GV_FIELD_LABELS).slice(0, 6).map(field => `
+    <tr><td class="text-secondary small">${GV_FIELD_LABELS[field]}</td><td class="small">${gvFormatValue(field, version[field])}</td></tr>
+  `).join('');
 
-  const { data: currentRow, error: fetchError } = await supabaseClient
-    .from('images')
-    .select('*')
-    .eq('id', gvCurrentImageId)
-    .single();
+  gvShowPreview({
+    title: `Restore Version ${versionNumber}?`,
+    bodyHtml: `
+      <p class="small">Item <strong>${gvCurrentImageTitle}</strong> akan dipulihkan tepat kepada nilai Version ${versionNumber}:</p>
+      <table class="table table-dark table-sm">${previewRows}</table>
+      <p class="small text-secondary">Keadaan semasa akan disimpan dulu sebagai version baru sebelum restore berlaku (boleh diundur).</p>
+      <label class="form-label small">Nota restore (optional)</label>
+      <input type="text" id="gvRestoreNote" class="form-control form-control-sm" placeholder="Contoh: Restore sebab tersalah edit harga">
+    `,
+    confirmLabel: `Restore Version ${versionNumber}`,
+    onConfirm: async (note) => {
+      const { data: currentRow, error: fetchError } = await supabaseClient
+        .from('images')
+        .select('*')
+        .eq('id', gvCurrentImageId)
+        .single();
 
-  if (fetchError || !currentRow) {
-    gvShowToast('Gagal ambil data semasa: ' + (fetchError ? fetchError.message : 'unknown'), 'danger');
-    return;
-  }
+      if (fetchError || !currentRow) {
+        gvShowToast('Gagal ambil data semasa: ' + (fetchError ? fetchError.message : 'unknown'), 'danger');
+        return;
+      }
 
-  // Snapshot current state before restoring, so this action is itself reversible
-  const trackedFields = Object.keys(GV_FIELD_LABELS);
-  const changedFromCurrent = trackedFields.filter(f => versionValuesDifferGv(currentRow[f], version[f]));
+      const trackedFields = Object.keys(GV_FIELD_LABELS);
+      const changedFromCurrent = trackedFields.filter(f => versionValuesDifferGv(currentRow[f], version[f]));
 
-  if (changedFromCurrent.length) {
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    const nextVersionNumber = Math.max(...gvVersions.map(v => v.version_number), 0) + 1;
+      if (changedFromCurrent.length) {
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        const nextVersionNumber = Math.max(...gvVersions.map(v => v.version_number), 0) + 1;
 
-    const snapshot = {};
-    trackedFields.forEach(f => { snapshot[f] = currentRow[f] ?? null; });
+        const snapshot = {};
+        trackedFields.forEach(f => { snapshot[f] = currentRow[f] ?? null; });
 
-    await supabaseClient.from('image_versions').insert({
-      image_id: gvCurrentImageId,
-      version_number: nextVersionNumber,
-      ...snapshot,
-      changed_fields: changedFromCurrent,
-      admin_id: user ? user.id : null,
-      admin_email: user ? user.email : 'unknown'
-    });
+        await supabaseClient.from('image_versions').insert({
+          image_id: gvCurrentImageId,
+          version_number: nextVersionNumber,
+          ...snapshot,
+          changed_fields: changedFromCurrent,
+          admin_id: user ? user.id : null,
+          admin_email: user ? user.email : 'unknown',
+          notes: note || null
+        });
 
-    // Apply the restored version's field values back onto the live row
-    const restorePayload = {};
-    trackedFields.forEach(f => { restorePayload[f] = version[f]; });
+        const restorePayload = {};
+        trackedFields.forEach(f => { restorePayload[f] = version[f]; });
 
-    const { error: updateError } = await supabaseClient
-      .from('images')
-      .update(restorePayload)
-      .eq('id', gvCurrentImageId);
+        const { error: updateError } = await supabaseClient
+          .from('images')
+          .update(restorePayload)
+          .eq('id', gvCurrentImageId);
 
-    if (updateError) {
-      gvShowToast('Gagal restore: ' + updateError.message, 'danger');
-      return;
+        if (updateError) {
+          gvShowToast('Gagal restore: ' + updateError.message, 'danger');
+          return;
+        }
+
+        await supabaseClient.from('audit_log').insert({
+          admin_id: user ? user.id : null,
+          admin_email: user ? user.email : 'unknown',
+          action: 'version_restore',
+          entity_type: 'image',
+          entity_id: gvCurrentImageId,
+          entity_name: currentRow.title
+        });
+      }
+
+      gvShowToast(`Version ${versionNumber} berjaya di-restore!`);
+      gvModal.hide();
+
+      if (typeof gmResetAndFetch === 'function') gmResetAndFetch();
     }
-
-    await supabaseClient.from('audit_log').insert({
-      admin_id: user ? user.id : null,
-      admin_email: user ? user.email : 'unknown',
-      action: 'version_restore',
-      entity_type: 'image',
-      entity_id: gvCurrentImageId,
-      entity_name: currentRow.title
-    });
-  }
-
-  gvShowToast(`Version ${versionNumber} berjaya di-restore!`);
-  gvModal.hide();
-
-  if (typeof gmResetAndFetch === 'function') gmResetAndFetch();
+  });
 }
 
 function gvShowToast(message, type = 'success') {

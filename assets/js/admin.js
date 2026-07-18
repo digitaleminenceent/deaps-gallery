@@ -442,7 +442,6 @@ async function checkAdminAccess() {
   loadDashboardSummary();
   checkForRecoverableDraft();
 
-  populateBulkUploadCategoryDropdown();
   if (!categoryCombobox) initCategoryComboboxes();
 }
 
@@ -783,66 +782,6 @@ document.getElementById('imgFile').addEventListener('change', async (e) => {
     placeholder.style.display = 'none';
   };
   reader.readAsDataURL(file);
-});  errorBox.textContent = '';
-  duplicateBtn.disabled = true;
-  duplicateBtn.innerHTML = 'Duplicating...';
-
-  try {
-    const styleCode = await generateStyleCode(category);
-
-    let imageUrls;
-    if (file) {
-      const finalFile = imgEditState.originalDataUrl ? await getEditedImageFile(file) : file;
-      imageUrls = await uploadImageFile(finalFile, category);
-    } else {
-      imageUrls = {
-        preview_url: original.preview_url,
-        full_res_url: original.full_res_url
-      };
-    }
-
-    const catRow = allCategoriesCache.find(c => c.slug === category);
-    const subcategoryId = document.getElementById('imgSubcategory').value || null;
-
-    const { error: insertError } = await supabaseClient
-      .from('images')
-      .insert({
-        title,
-        category,
-        category_id: catRow ? catRow.id : null,
-        subcategory_id: subcategoryId,
-        description,
-        admin_prompt: adminPrompt,
-        price,
-        is_featured: isFeatured,
-        style_code: styleCode,
-        preview_url: imageUrls.preview_url,
-        full_res_url: imageUrls.full_res_url,
-        slug,
-        tags,
-        status: 'draft',
-        featured_priority: featuredPriority,
-        display_order: displayOrder,
-        seo_title: seoTitle,
-        meta_description: metaDescription,
-        is_active: false
-      });
-
-    if (insertError) throw insertError;
-
-    logAuditEvent('create', null, { title, style_code: styleCode, note: 'duplicated' });
-    resetToAddMode();
-    showToast(`Item berjaya diduplicate sebagai Draft! Style Code baru: ${styleCode}`);
-    loadCatalog();
-    loadDashboardSummary();
-
-  } catch (err) {
-    errorBox.textContent = err.message;
-    showToast('Gagal duplicate: ' + err.message, 'danger');
-  } finally {
-    duplicateBtn.disabled = false;
-    duplicateBtn.innerHTML = '<i class="bi bi-files"></i> Duplicate';
-  }
 });
 
 // ---- HELPER: upload a new file (full-res + watermarked preview) and return URLs ----
@@ -998,7 +937,92 @@ function editImage(imageId) {
 document.getElementById('cancelEditBtn').addEventListener('click', () => {
   if (formIsDirty && !confirm('Anda ada perubahan belum disimpan. Buang perubahan ini?')) return;
   resetToAddMode();
-});// ---- UPLOAD IMAGE + ADD TO CATALOG (or SAVE CHANGES when editing) ----
+});
+
+// ---- DUPLICATE BUTTON ----
+document.getElementById('duplicateBtn').addEventListener('click', async () => {
+  const original = window._editingOriginal;
+  if (!original) return;
+
+  const title = document.getElementById('imgTitle').value;
+  const category = document.getElementById('imgCategory').value;
+  const description = document.getElementById('imgDescription').value;
+  const adminPrompt = document.getElementById('imgAdminPrompt').value;
+  const price = parseFloat(document.getElementById('imgPrice').value) || 0;
+  const isFeatured = document.getElementById('imgFeatured').checked;
+  const file = document.getElementById('imgFile').files[0];
+  const slug = slugify(document.getElementById('imgSlug').value || title) + '-copy';
+  const tags = parseTags(document.getElementById('imgTags').value);
+  const featuredPriority = parseInt(document.getElementById('imgFeaturedPriority').value) || 0;
+  const displayOrder = parseInt(document.getElementById('imgDisplayOrder').value) || 0;
+  const seoTitle = document.getElementById('imgSeoTitle').value;
+  const metaDescription = document.getElementById('imgMetaDescription').value;
+  const errorBox = document.getElementById('imageFormError');
+  const duplicateBtn = document.getElementById('duplicateBtn');
+
+  errorBox.textContent = '';
+  duplicateBtn.disabled = true;
+  duplicateBtn.innerHTML = 'Duplicating...';
+
+  try {
+    const styleCode = await generateStyleCode(category);
+
+    let imageUrls;
+    if (file) {
+      const finalFile = imgEditState.originalDataUrl ? await getEditedImageFile(file) : file;
+      imageUrls = await uploadImageFile(finalFile, category);
+    } else {
+      imageUrls = {
+        preview_url: original.preview_url,
+        full_res_url: original.full_res_url
+      };
+    }
+
+    const catRow = allCategoriesCache.find(c => c.slug === category);
+    const subcategoryId = document.getElementById('imgSubcategory').value || null;
+
+    const { error: insertError } = await supabaseClient
+      .from('images')
+      .insert({
+        title,
+        category,
+        category_id: catRow ? catRow.id : null,
+        subcategory_id: subcategoryId,
+        description,
+        admin_prompt: adminPrompt,
+        price,
+        is_featured: isFeatured,
+        style_code: styleCode,
+        preview_url: imageUrls.preview_url,
+        full_res_url: imageUrls.full_res_url,
+        slug,
+        tags,
+        status: 'draft',
+        featured_priority: featuredPriority,
+        display_order: displayOrder,
+        seo_title: seoTitle,
+        meta_description: metaDescription,
+        is_active: false
+      });
+
+    if (insertError) throw insertError;
+
+    logAuditEvent('create', null, { title, style_code: styleCode, note: 'duplicated' });
+    resetToAddMode();
+    showToast(`Item berjaya diduplicate sebagai Draft! Style Code baru: ${styleCode}`);
+    loadCatalog();
+    loadDashboardSummary();
+
+  } catch (err) {
+    errorBox.textContent = err.message;
+    showToast('Gagal duplicate: ' + err.message, 'danger');
+  } finally {
+    duplicateBtn.disabled = false;
+    duplicateBtn.innerHTML = '<i class="bi bi-files"></i> Duplicate';
+  }
+});
+
+// ---- UPLOAD IMAGE + ADD TO CATALOG (or SAVE CHANGES when editing) ----
 document.getElementById('imageForm').addEventListener('submit', async (e) => {
   e.preventDefault();
 
@@ -1028,10 +1052,7 @@ document.getElementById('imageForm').addEventListener('submit', async (e) => {
     return;
   }
 
-  const hasImage = editingId
-    ? !!(window._editingOriginal && window._editingOriginal.preview_url) || !!file
-    : !!file;
-
+  const hasImage = editingId ? !!(window._editingOriginal && window._editingOriginal.preview_url) || !!file : !!file;
   if (status === 'published') {
     const missing = validatePublishReady(title, category, hasImage);
     if (missing.length) {
@@ -1049,7 +1070,6 @@ document.getElementById('imageForm').addEventListener('submit', async (e) => {
     const subcategoryId = document.getElementById('imgSubcategory').value || null;
 
     if (editingId) {
-      // UPDATE SEDIA ADA
       const updatePayload = {
         title,
         category,
@@ -1091,7 +1111,6 @@ document.getElementById('imageForm').addEventListener('submit', async (e) => {
       loadDashboardSummary();
 
     } else {
-      // INSERT BARU
       const styleCode = await generateStyleCode(category);
       const finalFile = imgEditState.originalDataUrl ? await getEditedImageFile(file) : file;
       const imageUrls = await uploadImageFile(finalFile, category, showSingleUploadProgress);
@@ -1141,7 +1160,9 @@ document.getElementById('imageForm').addEventListener('submit', async (e) => {
     uploadBtn.textContent = editingId ? 'Save Changes' : 'Upload & Tambah';
     hideSingleUploadProgress();
   }
-});// ---- DASHBOARD SUMMARY CARDS ----
+});
+
+// ---- DASHBOARD SUMMARY CARDS ----
 async function loadDashboardSummary() {
   const { count: totalCount } = await supabaseClient
     .from('images')
@@ -1524,7 +1545,6 @@ if (selectAllOnPageCheckboxEl) {
   });
 }
 
-// ---- SORT COLUMN ----
 function getSortColumn() {
   switch (catalogState.sortBy) {
     case 'created_asc': return { column: 'created_at', ascending: true };
@@ -2190,8 +2210,450 @@ if (openBulkUploadBtnEl) {
   });
 }
 
-// (Di sini dalam kod asal ada lebih banyak handler untuk drag & drop bulk upload,
-// quick add kategori/subkategori, deep link edit, dan initialize app.)
+const bulkDropZoneEl = document.getElementById('bulkDropZone');
+const bulkFileInputEl = document.getElementById('bulkFileInput');
+
+if (bulkDropZoneEl) {
+  bulkDropZoneEl.addEventListener('click', () => bulkFileInputEl.click());
+
+  bulkDropZoneEl.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    bulkDropZoneEl.classList.add('border-warning');
+    bulkDropZoneEl.classList.remove('text-secondary');
+  });
+
+  bulkDropZoneEl.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    bulkDropZoneEl.classList.remove('border-warning');
+    bulkDropZoneEl.classList.add('text-secondary');
+  });
+
+  bulkDropZoneEl.addEventListener('drop', (e) => {
+    e.preventDefault();
+    bulkDropZoneEl.classList.remove('border-warning');
+    bulkDropZoneEl.classList.add('text-secondary');
+    if (e.dataTransfer.files.length) {
+      addFilesToBulkQueue(e.dataTransfer.files);
+    }
+  });
+}
+
+if (bulkFileInputEl) {
+  bulkFileInputEl.addEventListener('change', (e) => {
+    if (e.target.files.length) {
+      addFilesToBulkQueue(e.target.files);
+      e.target.value = '';
+    }
+  });
+}
+
+const bulkClearFilesBtnEl = document.getElementById('bulkClearFilesBtn');
+if (bulkClearFilesBtnEl) {
+  bulkClearFilesBtnEl.addEventListener('click', () => {
+    bulkUploadFiles = [];
+    renderBulkFileList();
+    renderBulkValidationSummary([]);
+  });
+}
+
+const cancelBulkUploadBtnEl = document.getElementById('cancelBulkUploadBtn');
+if (cancelBulkUploadBtnEl) {
+  cancelBulkUploadBtnEl.addEventListener('click', () => {
+    bulkUploadCancelled = true;
+    showToast('Membatalkan bulk upload selepas fail semasa selesai...', 'danger');
+  });
+}
+
+const bulkStartUploadBtnEl = document.getElementById('bulkStartUploadBtn');
+if (bulkStartUploadBtnEl) {
+  bulkStartUploadBtnEl.addEventListener('click', async () => {
+    const category = document.getElementById('bulkUploadCategory').value;
+    const status = document.getElementById('bulkUploadStatus').value;
+
+    if (!category) {
+      showToast('Sila pilih kategori dahulu.', 'danger');
+      return;
+    }
+
+    if (!bulkUploadFiles.length) {
+      showToast('Tiada fail untuk upload.', 'danger');
+      return;
+    }
+
+    const catRow = allCategoriesCache.find(c => c.slug === category);
+    const progressWrap = document.getElementById('bulkUploadProgress');
+    const progressBar = document.getElementById('bulkProgressBar');
+    const progressText = document.getElementById('bulkProgressText');
+
+    progressWrap.style.display = 'block';
+    bulkStartUploadBtnEl.disabled = true;
+    document.getElementById('bulkClearFilesBtn').disabled = true;
+    bulkUploadCancelled = false;
+    bulkUploadInProgress = true;
+
+    const total = bulkUploadFiles.length;
+    let successCount = 0;
+    let failCount = 0;
+    let cancelledAt = null;
+
+    for (let i = 0; i < total; i++) {
+      if (bulkUploadCancelled) {
+        cancelledAt = i;
+        break;
+      }
+
+      const item = bulkUploadFiles[i];
+      progressText.textContent = `Uploading ${i + 1} / ${total}: ${item.title}`;
+
+      try {
+        const styleCode = await generateStyleCode(category);
+        const imageUrls = await uploadImageFile(item.file, category);
+
+        const { error: insertError } = await supabaseClient
+          .from('images')
+          .insert({
+            title: item.title || item.file.name,
+            category,
+            category_id: catRow ? catRow.id : null,
+            subcategory_id: null,
+            description: '',
+            admin_prompt: '',
+            price: 0,
+            is_featured: false,
+            style_code: styleCode,
+            preview_url: imageUrls.preview_url,
+            full_res_url: imageUrls.full_res_url,
+            slug: slugify(item.title || item.file.name),
+            tags: [],
+            status,
+            featured_priority: 0,
+            display_order: 0,
+            seo_title: '',
+            meta_description: '',
+            is_active: status !== 'archived'
+          });
+
+        if (insertError) throw insertError;
+
+        logAuditEvent('create', null, { title: item.title, style_code: styleCode, note: 'bulk_upload' });
+        successCount += 1;
+      } catch (err) {
+        console.error(`Gagal upload ${item.title}:`, err.message);
+        failCount += 1;
+      }
+
+      const pct = Math.round(((i + 1) / total) * 100);
+      progressBar.style.width = pct + '%';
+      progressBar.textContent = pct + '%';
+    }
+
+    bulkUploadInProgress = false;
+
+    if (cancelledAt !== null) {
+      const remaining = total - cancelledAt;
+      progressText.textContent = `Dibatalkan! ${successCount} berjaya, ${remaining} dilangkau.`;
+      showToast(`Bulk upload dibatalkan: ${successCount} berjaya, ${remaining} tidak diupload.`, 'danger');
+      bulkUploadFiles = bulkUploadFiles.slice(cancelledAt);
+    } else {
+      progressText.textContent = `Selesai! ${successCount} berjaya, ${failCount} gagal.`;
+      showToast(`Bulk upload selesai: ${successCount} berjaya${failCount ? `, ${failCount} gagal` : ''}.`, failCount ? 'danger' : 'success');
+      bulkUploadFiles = [];
+    }
+
+    renderBulkFileList();
+    loadCatalog();
+    loadDashboardSummary();
+
+    setTimeout(() => {
+      progressWrap.style.display = 'none';
+      progressBar.style.width = '0%';
+      progressBar.textContent = '0%';
+      bulkStartUploadBtnEl.disabled = bulkUploadFiles.length === 0;
+      document.getElementById('bulkClearFilesBtn').disabled = false;
+    }, 2500);
+  });
+}
+
+// ==================== SEARCHABLE COMBOBOX ENGINE ====================
+
+function getRecentIds(key) {
+  try { return JSON.parse(localStorage.getItem(key)) || []; } catch (e) { return []; }
+}
+
+function addRecentId(key, id) {
+  let list = getRecentIds(key).filter(x => x !== id);
+  list.unshift(id);
+  list = list.slice(0, RECENT_LIMIT);
+  localStorage.setItem(key, JSON.stringify(list));
+}
+
+function createSearchableCombobox(config) {
+  const {
+    inputEl, listboxEl, hiddenSelectEl, recentKey,
+    getOptions, addBtnEl, onAddNew
+  } = config;
+
+  let activeIndex = -1;
+  let currentOptions = [];
+
+  function optionsFromSelect() {
+    return Array.from(hiddenSelectEl.options)
+      .filter(opt => opt.value !== '')
+      .map(opt => ({
+        value: opt.value,
+        label: opt.textContent,
+        id: opt.dataset.id || opt.value
+      }));
+  }
+
+  function renderList(filterText) {
+    const allOpts = getOptions ? getOptions() : optionsFromSelect();
+    const term = (filterText || '').trim().toLowerCase();
+    const recentIds = getRecentIds(recentKey);
+
+    let filtered = term
+      ? allOpts.filter(o => o.label.toLowerCase().includes(term))
+      : allOpts;
+
+    let html = '';
+
+    if (!term && recentIds.length) {
+      const recentOpts = recentIds
+        .map(id => allOpts.find(o => o.id === id || o.value === id))
+        .filter(Boolean);
+      if (recentOpts.length) {
+        html += `<li class="deaps-group-label">Recently Used</li>`;
+        recentOpts.forEach(o => {
+          html += `<li role="option" data-value="${o.value}" data-id="${o.id}">${o.label}</li>`;
+        });
+        html += `<li class="deaps-group-label">Semua</li>`;
+      }
+    }
+
+    if (!filtered.length) {
+      html += `<li class="deaps-empty">Tiada hasil ditemui.</li>`;
+    } else {
+      filtered.forEach(o => {
+        html += `<li role="option" data-value="${o.value}" data-id="${o.id}">${o.label}</li>`;
+      });
+    }
+
+    if (addBtnEl) {
+      html += `<li class="deaps-add-new" data-action="add-new"><i class="bi bi-plus-lg"></i> Tambah baru${term ? `: "${term}"` : ''}</li>`;
+    }
+
+    listboxEl.innerHTML = html;
+    currentOptions = Array.from(listboxEl.querySelectorAll('li[role="option"], li[data-action="add-new"]'));
+    activeIndex = -1;
+  }
+
+  function openList() {
+    renderList(inputEl.value);
+    listboxEl.style.display = 'block';
+    inputEl.setAttribute('aria-expanded', 'true');
+  }
+
+  function closeList() {
+    listboxEl.style.display = 'none';
+    inputEl.setAttribute('aria-expanded', 'false');
+    activeIndex = -1;
+  }
+
+  function selectOption(li) {
+    if (li.dataset.action === 'add-new') {
+      closeList();
+      if (onAddNew) onAddNew(inputEl.value.trim());
+      return;
+    }
+    const value = li.dataset.value;
+    const id = li.dataset.id;
+    const label = li.textContent;
+
+    hiddenSelectEl.value = value;
+    hiddenSelectEl.dispatchEvent(new Event('change', { bubbles: true }));
+    inputEl.value = label;
+    addRecentId(recentKey, id);
+    closeList();
+    markFormDirty();
+  }
+
+  function setActive(idx) {
+    currentOptions.forEach(li => li.classList.remove('active'));
+    if (idx >= 0 && idx < currentOptions.length) {
+      currentOptions[idx].classList.add('active');
+      currentOptions[idx].scrollIntoView({ block: 'nearest' });
+    }
+    activeIndex = idx;
+  }
+
+  inputEl.addEventListener('focus', openList);
+  inputEl.addEventListener('input', () => { renderList(inputEl.value); openList(); });
+
+  inputEl.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (listboxEl.style.display === 'none') { openList(); return; }
+      setActive(Math.min(activeIndex + 1, currentOptions.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActive(Math.max(activeIndex - 1, 0));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (activeIndex >= 0 && currentOptions[activeIndex]) {
+        selectOption(currentOptions[activeIndex]);
+      }
+    } else if (e.key === 'Escape') {
+      closeList();
+    }
+  });
+
+  listboxEl.addEventListener('click', (e) => {
+    const li = e.target.closest('li[role="option"], li[data-action="add-new"]');
+    if (li) selectOption(li);
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!inputEl.closest('.deaps-combobox').contains(e.target)) {
+      closeList();
+    }
+  });
+
+  if (addBtnEl) {
+    addBtnEl.addEventListener('click', () => onAddNew && onAddNew(''));
+  }
+
+  function refresh() {
+    const selectedOpt = hiddenSelectEl.options[hiddenSelectEl.selectedIndex];
+    inputEl.value = (selectedOpt && selectedOpt.value) ? selectedOpt.textContent : '';
+  }
+
+  function selectById(id) {
+    const opt = Array.from(hiddenSelectEl.options).find(o => o.dataset.id === id || o.value === id);
+    if (opt) {
+      hiddenSelectEl.value = opt.value;
+      hiddenSelectEl.dispatchEvent(new Event('change', { bubbles: true }));
+      inputEl.value = opt.textContent;
+      addRecentId(recentKey, opt.dataset.id || opt.value);
+    }
+  }
+
+  return { refresh, selectById, closeList };
+}
+
+function initCategoryComboboxes() {
+  categoryCombobox = createSearchableCombobox({
+    inputEl: document.getElementById('imgCategoryInput'),
+    listboxEl: document.getElementById('imgCategoryListbox'),
+    hiddenSelectEl: document.getElementById('imgCategory'),
+    recentKey: RECENT_CATEGORY_KEY,
+    addBtnEl: document.getElementById('addCategoryBtn'),
+    onAddNew: (prefillName) => openQuickAddDrawer('category', null, prefillName)
+  });
+
+  subcategoryCombobox = createSearchableCombobox({
+    inputEl: document.getElementById('imgSubcategoryInput'),
+    listboxEl: document.getElementById('imgSubcategoryListbox'),
+    hiddenSelectEl: document.getElementById('imgSubcategory'),
+    recentKey: RECENT_SUBCATEGORY_KEY,
+    addBtnEl: document.getElementById('addSubcategoryBtn'),
+    onAddNew: (prefillName) => {
+      const catSelect = document.getElementById('imgCategory');
+      const catOpt = catSelect.options[catSelect.selectedIndex];
+      const categoryId = catOpt ? catOpt.dataset.id : null;
+      if (!categoryId) {
+        showToast('Sila pilih kategori utama dahulu.', 'danger');
+        return;
+      }
+      openQuickAddDrawer('subcategory', categoryId, prefillName);
+    }
+  });
+
+  categoryCombobox.refresh();
+  subcategoryCombobox.refresh();
+}
+
+// ---- QUICK ADD DRAWER (Category / Subcategory) ----
+function openQuickAddDrawer(type, parentCategoryId, prefillName) {
+  document.getElementById('quickAddType').value = type;
+  document.getElementById('quickAddParentCategoryId').value = parentCategoryId || '';
+  document.getElementById('quickAddName').value = prefillName || '';
+  document.getElementById('quickAddError').textContent = '';
+  document.getElementById('quickAddPrefixWrap').style.display = type === 'category' ? 'block' : 'none';
+
+  const label = document.getElementById('quickAddDrawerLabel');
+  label.innerHTML = type === 'category'
+    ? '<i class="bi bi-tags"></i> Tambah Kategori Baru'
+    : '<i class="bi bi-tags"></i> Tambah Subkategori Baru';
+
+  const drawer = new bootstrap.Offcanvas(document.getElementById('quickAddDrawer'));
+  drawer.show();
+  setTimeout(() => document.getElementById('quickAddName').focus(), 300);
+}
+
+document.getElementById('quickAddForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const type = document.getElementById('quickAddType').value;
+  const parentCategoryId = document.getElementById('quickAddParentCategoryId').value;
+  const name = document.getElementById('quickAddName').value.trim();
+  const prefix = document.getElementById('quickAddPrefix').value.trim().toUpperCase();
+  const displayOrder = parseInt(document.getElementById('quickAddDisplayOrder').value) || 0;
+  const errorBox = document.getElementById('quickAddError');
+  const submitBtn = document.getElementById('quickAddSubmitBtn');
+
+  errorBox.textContent = '';
+
+  if (!name) {
+    errorBox.textContent = 'Nama diperlukan.';
+    return;
+  }
+
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = 'Menyimpan...';
+
+  try {
+    const slug = slugify(name);
+
+    if (type === 'category') {
+      const { data, error } = await supabaseClient
+        .from('categories')
+        .insert({ name, slug, code_prefix: prefix || null, display_order: displayOrder, is_active: true })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      await loadCategoryDropdown();
+      categoryCombobox.selectById(data.id);
+      showToast(`Kategori "${name}" berjaya ditambah!`);
+
+    } else {
+      if (!parentCategoryId) throw new Error('Kategori utama tidak sah.');
+
+      const { data, error } = await supabaseClient
+        .from('subcategories')
+        .insert({ name, category_id: parentCategoryId, display_order: displayOrder, is_active: true })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      await loadSubcategoryDropdown();
+      subcategoryCombobox.selectById(data.id);
+      showToast(`Subkategori "${name}" berjaya ditambah!`);
+    }
+
+    markFormDirty();
+    bootstrap.Offcanvas.getInstance(document.getElementById('quickAddDrawer')).hide();
+    document.getElementById('quickAddForm').reset();
+
+  } catch (err) {
+    errorBox.textContent = err.message;
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = '<i class="bi bi-check-lg"></i> Simpan & Guna';
+  }
+});
 
 // ---- SUPPORT DEEP LINK FROM GALLERY MANAGEMENT (?editId=...&duplicate=1) ----
 async function handleDeepLinkEdit() {
@@ -2207,7 +2669,7 @@ async function handleDeepLinkEdit() {
 
   if (error || !record) return;
 
-  window._imageData = window._imageData || {};
+  window._imageData =  window._imageData = window._imageData || {};
   window._imageData[record.id] = record;
 
   editImage(record.id);
@@ -2228,4 +2690,126 @@ async function handleDeepLinkEdit() {
 // ---- INITIALIZE APP ----
 checkAdminAccess().then(() => {
   handleDeepLinkEdit();
-});
+});// ==================== BULK UNPUBLISH & BULK MOVE SUBCATEGORY ====================
+
+// ---- BULK UNPUBLISH (published -> draft, label tersendiri berbeza dari Set Draft) ----
+async function bulkUnpublish() {
+  if (bulkSelectedIds.size === 0) return;
+
+  const ids = Array.from(bulkSelectedIds);
+  const publishedIds = ids.filter(id => {
+    const record = window._imageData && window._imageData[id];
+    return record && record.status === 'published';
+  });
+
+  if (publishedIds.length === 0) {
+    showToast('Tiada item Published dalam pilihan anda.', 'danger');
+    return;
+  }
+
+  const skippedCount = ids.length - publishedIds.length;
+  const confirmMsg = skippedCount > 0
+    ? `Unpublish ${publishedIds.length} item Published? (${skippedCount} item lain akan dilangkau kerana bukan Published)`
+    : `Unpublish ${publishedIds.length} item?`;
+
+  if (!confirm(confirmMsg)) return;
+
+  await runBulkOperation(publishedIds, 'Unpublish', async (chunk) => {
+    const { error } = await supabaseClient
+      .from('images')
+      .update({ status: 'draft' })
+      .in('id', chunk);
+    if (error) throw error;
+  });
+
+  logAuditEvent('bulk_action', null, { action: 'unpublish', count: publishedIds.length, ids: publishedIds });
+  bulkSelectedIds.clear();
+  updateBulkActionsBar();
+  loadCatalog();
+  loadDashboardSummary();
+}
+
+const bulkUnpublishBtnEl = document.getElementById('bulkUnpublishBtn');
+if (bulkUnpublishBtnEl) bulkUnpublishBtnEl.addEventListener('click', bulkUnpublish);
+
+// ---- POPULATE BULK MOVE SUBCATEGORY DROPDOWN (dikumpul mengikut kategori) ----
+let allSubcategoriesCache = [];
+
+async function populateBulkMoveSubcategoryDropdown() {
+  const sel = document.getElementById('bulkMoveSubcategory');
+  if (!sel) return;
+
+  const { data, error } = await supabaseClient
+    .from('subcategories')
+    .select('*, categories(name, slug)')
+    .eq('is_active', true)
+    .order('display_order', { ascending: true });
+
+  if (error || !data) {
+    sel.innerHTML = `<option value="">Move to Subcategory...</option>`;
+    return;
+  }
+
+  allSubcategoriesCache = data;
+
+  const groupedByCategory = {};
+  data.forEach(sub => {
+    const catName = sub.categories ? sub.categories.name : 'Lain-lain';
+    if (!groupedByCategory[catName]) groupedByCategory[catName] = [];
+    groupedByCategory[catName].push(sub);
+  });
+
+  sel.innerHTML = `<option value="">Move to Subcategory...</option>` +
+    Object.keys(groupedByCategory).map(catName => `
+      <optgroup label="${catName}">
+        ${groupedByCategory[catName].map(sub => `<option value="${sub.id}">${sub.name}</option>`).join('')}
+      </optgroup>
+    `).join('');
+}
+
+// ---- BULK MOVE SUBCATEGORY (menyelaraskan kategori utama secara automatik) ----
+async function bulkMoveSubcategory() {
+  const subcategoryId = document.getElementById('bulkMoveSubcategory').value;
+  if (!subcategoryId) {
+    showToast('Sila pilih subkategori destinasi.', 'danger');
+    return;
+  }
+  if (bulkSelectedIds.size === 0) return;
+
+  const subRow = allSubcategoriesCache.find(s => s.id === subcategoryId);
+  if (!subRow) {
+    showToast('Subkategori tidak ditemui.', 'danger');
+    return;
+  }
+
+  const parentCatRow = allCategoriesCache.find(c => c.id === subRow.category_id);
+  const parentCatSlug = parentCatRow ? parentCatRow.slug : null;
+
+  if (!confirm(`Pindah ${bulkSelectedIds.size} item ke subkategori "${subRow.name}"? Kategori utama akan diselaraskan secara automatik.`)) return;
+
+  const ids = Array.from(bulkSelectedIds);
+  await runBulkOperation(ids, 'Memindah subkategori', async (chunk) => {
+    const updatePayload = { subcategory_id: subcategoryId };
+    if (parentCatSlug) {
+      updatePayload.category = parentCatSlug;
+      updatePayload.category_id = subRow.category_id;
+    }
+    const { error } = await supabaseClient
+      .from('images')
+      .update(updatePayload)
+      .in('id', chunk);
+    if (error) throw error;
+  });
+
+  logAuditEvent('bulk_action', null, { action: 'move_subcategory', subcategory: subRow.name, count: ids.length, ids });
+  bulkSelectedIds.clear();
+  updateBulkActionsBar();
+  document.getElementById('bulkMoveSubcategory').value = '';
+  loadCatalog();
+  loadDashboardSummary();
+}
+
+const bulkMoveSubcategoryBtnEl = document.getElementById('bulkMoveSubcategoryBtn');
+if (bulkMoveSubcategoryBtnEl) bulkMoveSubcategoryBtnEl.addEventListener('click', bulkMoveSubcategory);
+
+populateBulkMoveSubcategoryDropdown();

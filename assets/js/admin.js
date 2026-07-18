@@ -1096,6 +1096,9 @@ document.getElementById('imageForm').addEventListener('submit', async (e) => {
         updatePayload.full_res_url = imageUrls.full_res_url;
       }
 
+      // ---- VERSION HISTORY: snapshot the PREVIOUS state if meaningful fields changed ----
+      await saveVersionSnapshotIfChanged(window._editingOriginal, updatePayload);
+
       const { error: updateError } = await supabaseClient
         .from('images')
         .update(updatePayload)
@@ -1948,6 +1951,57 @@ async function refreshRecycleBinCount() {
 const AUDIT_PAGE_SIZE = 20;
 let auditState = { page: 0, filterAction: '', searchTerm: '', debounceTimer: null };
 
+// ---- VERSION HISTORY: tracked fields worth versioning ----
+const VERSION_TRACKED_FIELDS = [
+  'title', 'slug', 'description', 'category', 'category_id', 'subcategory_id',
+  'is_featured', 'status', 'display_order', 'seo_title', 'meta_description',
+  'tags', 'preview_url', 'full_res_url'
+];
+
+function versionValuesDiffer(a, b) {
+  // Handles arrays (tags) and primitives consistently
+  return JSON.stringify(a === undefined ? null : a) !== JSON.stringify(b === undefined ? null : b);
+}
+
+async function saveVersionSnapshotIfChanged(oldRecord, newPayload) {
+  if (!oldRecord) return;
+
+  const changedFields = VERSION_TRACKED_FIELDS.filter(field =>
+    versionValuesDiffer(oldRecord[field], newPayload[field])
+  );
+
+  if (!changedFields.length) return; // duplicate protection: no meaningful change, skip
+
+  try {
+    const { data: { user } } = await supabaseClient.auth.getUser();
+
+    const { data: existingVersions } = await supabaseClient
+      .from('image_versions')
+      .select('version_number')
+      .eq('image_id', oldRecord.id)
+      .order('version_number', { ascending: false })
+      .limit(1);
+
+    const nextVersionNumber = (existingVersions && existingVersions.length)
+      ? existingVersions[0].version_number + 1
+      : 1;
+
+    const snapshot = {};
+    VERSION_TRACKED_FIELDS.forEach(field => { snapshot[field] = oldRecord[field] ?? null; });
+
+    await supabaseClient.from('image_versions').insert({
+      image_id: oldRecord.id,
+      version_number: nextVersionNumber,
+      ...snapshot,
+      changed_fields: changedFields,
+      admin_id: user ? user.id : null,
+      admin_email: user ? user.email : 'unknown'
+    });
+  } catch (err) {
+    console.warn('Version snapshot gagal direkod:', err.message);
+  }
+}
+
 async function logAuditEvent(action, record, details = {}) {
   try {
     const { data: { user } } = await supabaseClient.auth.getUser();
@@ -1958,6 +2012,16 @@ async function logAuditEvent(action, record, details = {}) {
       style_code: record ? record.style_code : (details.style_code || null),
       admin_email: user ? user.email : 'unknown',
       details
+    });
+
+    // Also log to centralized audit_log (used by Activity Log page, Category & Gallery Management)
+    await supabaseClient.from('audit_log').insert({
+      admin_id: user ? user.id : null,
+      admin_email: user ? user.email : 'unknown',
+      action,
+      entity_type: 'image',
+      entity_id: record ? record.id : null,
+      entity_name: record ? record.title : (details.title || null)
     });
   } catch (err) {
     console.warn('Audit log gagal direkod:', err.message);

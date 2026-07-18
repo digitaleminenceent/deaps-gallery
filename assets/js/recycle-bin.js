@@ -14,10 +14,18 @@ async function rbCheckAuth() {
     });
 }
 
+async function rbLoadCategoryFilterOptions() {
+    const { data } = await supabaseClient.from('categories').select('slug, name').order('name');
+    const select = document.getElementById('rbCategoryFilter');
+    (data || []).forEach(cat => {
+        select.innerHTML += `<option value="${cat.slug}">${cat.name}</option>`;
+    });
+}
+
 async function rbLoadData() {
     const { data, error } = await supabaseClient
         .from('images')
-        .select('id, title, category, preview_url, full_res_url, deleted_at')
+        .select('id, title, slug, category, subcategory_id, subcategories(name), preview_url, full_res_url, status, created_at, deleted_at, deleted_by_email')
         .not('deleted_at', 'is', null)
         .order('deleted_at', { ascending: false });
 
@@ -27,8 +35,7 @@ async function rbLoadData() {
     }
 
     rbData = data || [];
-    document.getElementById('rbResultCount').textContent = `${rbData.length} item(s) in Recycle Bin`;
-    rbRenderList();
+    rbApplyFilters();
 }
 
 function rbDaysAgo(dateStr) {
@@ -36,15 +43,39 @@ function rbDaysAgo(dateStr) {
     return Math.floor(diff / (1000 * 60 * 60 * 24));
 }
 
-function rbRenderList() {
+function rbApplyFilters() {
+    const keyword = document.getElementById('rbSearch').value.toLowerCase();
+    const categoryFilter = document.getElementById('rbCategoryFilter').value;
+    const sortBy = document.getElementById('rbSort').value;
+
+    let filtered = rbData.filter(item =>
+        item.title.toLowerCase().includes(keyword) ||
+        (item.slug || '').toLowerCase().includes(keyword)
+    );
+
+    if (categoryFilter) filtered = filtered.filter(item => item.category === categoryFilter);
+
+    if (sortBy === 'deleted_desc') filtered = [...filtered].sort((a, b) => new Date(b.deleted_at) - new Date(a.deleted_at));
+    if (sortBy === 'deleted_asc') filtered = [...filtered].sort((a, b) => new Date(a.deleted_at) - new Date(b.deleted_at));
+    if (sortBy === 'title') filtered = [...filtered].sort((a, b) => a.title.localeCompare(b.title));
+
+    document.getElementById('rbResultCount').textContent = `${filtered.length} item(s) in Recycle Bin`;
+    rbRenderList(filtered);
+}
+
+document.getElementById('rbSearch').addEventListener('input', rbApplyFilters);
+document.getElementById('rbCategoryFilter').addEventListener('change', rbApplyFilters);
+document.getElementById('rbSort').addEventListener('change', rbApplyFilters);
+
+function rbRenderList(list) {
     const container = document.getElementById('rbListContainer');
 
-    if (!rbData.length) {
+    if (!list.length) {
         container.innerHTML = `<div class="text-center py-5 text-secondary"><i class="bi bi-trash3" style="font-size:2.5rem;"></i><p class="mt-2">Recycle Bin kosong.</p></div>`;
         return;
     }
 
-    container.innerHTML = `<div class="row g-3">` + rbData.map(item => {
+    container.innerHTML = `<div class="row g-3">` + list.map(item => {
         const days = rbDaysAgo(item.deleted_at);
         const checked = rbSelectedIds.has(item.id) ? 'checked' : '';
         return `
@@ -57,7 +88,11 @@ function rbRenderList() {
                         <span class="badge bg-secondary rb-badge-days">${days} day${days === 1 ? '' : 's'} ago</span>
                     </div>
                     <h6 class="mb-1 small">${item.title}</h6>
-                    <p class="text-secondary small mb-2">${item.category || ''}</p>
+                    <p class="text-secondary small mb-1">Slug: ${item.slug || '—'}</p>
+                    <p class="text-secondary small mb-1">${item.category || ''}${item.subcategories ? ' / ' + item.subcategories.name : ''}</p>
+                    <p class="text-secondary small mb-1">Status before delete: <span class="badge bg-dark border border-secondary">${item.status || '—'}</span></p>
+                    <p class="text-secondary small mb-1">Created: ${new Date(item.created_at).toLocaleDateString('en-MY')}</p>
+                    <p class="text-secondary small mb-2">Deleted by: ${item.deleted_by_email || '—'}</p>
                     <div class="d-flex gap-1">
                         <button class="btn btn-outline-success btn-sm flex-fill" onclick="rbRestore('${item.id}')"><i class="bi bi-arrow-counterclockwise"></i> Restore</button>
                         <button class="btn btn-outline-danger btn-sm flex-fill" onclick="rbDelete('${item.id}')"><i class="bi bi-trash3"></i></button>
@@ -78,7 +113,7 @@ document.getElementById('rbSelectAll').addEventListener('change', (e) => {
     if (e.target.checked) rbData.forEach(item => rbSelectedIds.add(item.id));
     else rbSelectedIds.clear();
     document.getElementById('rbSelectedCount').textContent = `${rbSelectedIds.size} selected`;
-    rbRenderList();
+    rbApplyFilters();
 });
 
 // ---- Extract storage file path from a Supabase public URL ----
@@ -123,19 +158,20 @@ function rbShowToast(message, type = 'success') {
     el.addEventListener('hidden.bs.toast', () => el.remove());
 }
 
+// ---- RESTORE: preserve original status exactly as it was (fixed — no longer forces 'draft') ----
 async function rbRestore(id) {
     const item = rbData.find(i => i.id === id);
     if (!item) return;
 
     const { error } = await supabaseClient
         .from('images')
-        .update({ deleted_at: null, is_active: true, status: 'draft' })
+        .update({ deleted_at: null, is_active: item.status !== 'archived', deleted_by: null, deleted_by_email: null })
         .eq('id', id);
 
     if (error) { rbShowToast(error.message, 'danger'); return; }
 
-    await rbLogAudit('restore_from_bin', id, item.title);
-    rbShowToast('Item dipulihkan sebagai Draft. Sila semak di Gallery Management.');
+    await rbLogAudit('restore', id, item.title);
+    rbShowToast(`Item dipulihkan dengan status asal: ${item.status || 'draft'}.`);
     rbSelectedIds.delete(id);
     rbLoadData();
 }
@@ -161,12 +197,18 @@ async function rbDelete(id) {
 async function rbBulkRestore() {
     const ids = Array.from(rbSelectedIds);
     if (!ids.length) return;
-    if (!confirm(`Restore ${ids.length} item(s)?`)) return;
+    if (!confirm(`Restore ${ids.length} item(s)? Status asal setiap item akan dikekalkan.`)) return;
 
     for (const id of ids) {
         const item = rbData.find(i => i.id === id);
-        await supabaseClient.from('images').update({ deleted_at: null, is_active: true, status: 'draft' }).eq('id', id);
-        await rbLogAudit('restore_from_bin', id, item ? item.title : null);
+        if (!item) continue;
+        await supabaseClient.from('images').update({
+            deleted_at: null,
+            is_active: item.status !== 'archived',
+            deleted_by: null,
+            deleted_by_email: null
+        }).eq('id', id);
+        await rbLogAudit('restore', id, item.title);
     }
 
     rbShowToast(`${ids.length} item(s) dipulihkan.`);
@@ -193,5 +235,6 @@ async function rbBulkDelete() {
 
 (async function init() {
     await rbCheckAuth();
+    await rbLoadCategoryFilterOptions();
     await rbLoadData();
 })();

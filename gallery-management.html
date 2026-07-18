@@ -87,6 +87,11 @@
       <option value="">All Items</option>
       <option value="true">Featured Only</option>
     </select>
+    <select id="gmRecentFilter" class="form-select" style="max-width:170px;">
+      <option value="">Any Time</option>
+      <option value="7">Recently Added (7 days)</option>
+      <option value="30">Recently Added (30 days)</option>
+    </select>
     <select id="gmSort" class="form-select" style="max-width:170px;">
       <option value="latest">Latest</option>
       <option value="oldest">Oldest</option>
@@ -95,9 +100,9 @@
       <option value="display_order">Display Order</option>
     </select>
     <div class="btn-group ms-auto" role="group">
-      <button class="btn btn-outline-light btn-sm active" id="gmViewCard"><i class="bi bi-grid"></i></button>
-      <button class="btn btn-outline-light btn-sm" id="gmViewCompact"><i class="bi bi-grid-3x3"></i></button>
-      <button class="btn btn-outline-light btn-sm" id="gmViewTable"><i class="bi bi-list-ul"></i></button>
+      <button class="btn btn-outline-light btn-sm active" id="gmViewCard" aria-label="Card view"><i class="bi bi-grid"></i></button>
+      <button class="btn btn-outline-light btn-sm" id="gmViewCompact" aria-label="Compact card view"><i class="bi bi-grid-3x3"></i></button>
+      <button class="btn btn-outline-light btn-sm" id="gmViewTable" aria-label="Table view"><i class="bi bi-list-ul"></i></button>
     </div>
   </div>
 
@@ -140,7 +145,24 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-client.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
+<!-- VERSION HISTORY MODAL -->
+<div class="modal fade" id="gvHistoryModal" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content bg-dark text-white">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title" id="gvModalTitle">Version History</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="gvVersionList"></div>
+        <div id="gvCompareArea"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="assets/js/gallery-management.js"></script>
+<script src="assets/js/gallery-versions.js"></script>
 
 </body>
 </html>

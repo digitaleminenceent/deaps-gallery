@@ -193,6 +193,7 @@ function gmActionButtons(item) {
     return `
         <button class="btn btn-outline-info btn-sm" title="Preview" aria-label="Preview ${item.title}" onclick="gmPreview('${item.category}','${item.style_code || item.id}')"><i class="bi bi-eye"></i></button>
         <button class="btn btn-outline-info btn-sm" title="Copy Preview URL" aria-label="Copy preview URL for ${item.title}" onclick="gmCopyPreviewUrl('${item.category}','${item.style_code || item.id}')"><i class="bi bi-link-45deg"></i></button>
+        <button class="btn btn-outline-info btn-sm" title="Version History" aria-label="View version history for ${item.title}" onclick="gvOpenHistory('${item.id}', '${(item.title || '').replace(/'/g, "\\'")}')"><i class="bi bi-clock-history"></i></button>
         <button class="btn btn-outline-secondary btn-sm" title="Edit" aria-label="Edit ${item.title}" onclick="gmEditItem('${item.id}')"><i class="bi bi-pencil"></i></button>
         <button class="btn btn-outline-secondary btn-sm" title="Duplicate" aria-label="Duplicate ${item.title}" onclick="gmDuplicateItem('${item.id}')"><i class="bi bi-files"></i></button>
         ${item.status !== 'archived'
@@ -263,7 +264,13 @@ async function gmRestore(id) {
 
 async function gmDelete(id) {
     if (!confirm('Move this item to the Recycle Bin? This does not permanently delete it yet.')) return;
-    const { error } = await supabaseClient.from('images').update({ deleted_at: new Date().toISOString(), is_active: false }).eq('id', id);
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    const { error } = await supabaseClient.from('images').update({
+        deleted_at: new Date().toISOString(),
+        is_active: false,
+        deleted_by: user ? user.id : null,
+        deleted_by_email: user ? user.email : null
+    }).eq('id', id);
     if (error) { showToast(error.message, 'error'); return; }
     await gmLogAudit('delete', id);
     showToast('Moved to Recycle Bin.');
@@ -312,8 +319,14 @@ async function gmBulkAction(action) {
     };
 
     if (action === 'delete') {
+        const { data: { user } } = await supabaseClient.auth.getUser();
         await gmRunWithProgress(ids, async (id) => {
-            await supabaseClient.from('images').update({ deleted_at: new Date().toISOString(), is_active: false }).eq('id', id);
+            await supabaseClient.from('images').update({
+                deleted_at: new Date().toISOString(),
+                is_active: false,
+                deleted_by: user ? user.id : null,
+                deleted_by_email: user ? user.email : null
+            }).eq('id', id);
             await gmLogAudit('bulk_delete', id);
         });
     } else if (action === 'duplicate') {

@@ -64,6 +64,12 @@ function gmBuildQuery() {
     const featured = document.getElementById('gmFeaturedFilter').value;
     if (featured) q = q.eq('is_featured', true);
 
+    const recentDays = document.getElementById('gmRecentFilter').value;
+    if (recentDays) {
+        const cutoff = new Date(Date.now() - parseInt(recentDays) * 24 * 60 * 60 * 1000).toISOString();
+        q = q.gte('created_at', cutoff);
+    }
+
     const sortMap = {
         latest: { col: 'created_at', asc: false },
         oldest: { col: 'created_at', asc: true },
@@ -109,7 +115,7 @@ function gmStatusBadge(status) {
 
 function gmCheckbox(item) {
     const checked = gmSelectedIds.has(item.id) ? 'checked' : '';
-    return `<input type="checkbox" class="form-check-input gm-item-checkbox" data-id="${item.id}" ${checked} onclick="gmToggleSelect('${item.id}', this.checked)">`;
+    return `<input type="checkbox" class="form-check-input gm-item-checkbox" data-id="${item.id}" aria-label="Select ${item.title}" ${checked} onclick="gmToggleSelect('${item.id}', this.checked)">`;
 }
 
 function gmToggleSelect(id, checked) {
@@ -147,7 +153,7 @@ function gmRenderList() {
         ${gmData.map(item => `
             <tr>
                 <td>${gmCheckbox(item)}</td>
-                <td><img src="${item.preview_url}" alt=""></td>
+                <td><img src="${item.preview_url}" alt="${item.title}" loading="lazy"></td>
                 <td>${item.title}</td>
                 <td class="text-secondary small">${item.slug || '—'}</td>
                 <td>${item.category || ''}</td>
@@ -166,7 +172,7 @@ function gmRenderList() {
         container.innerHTML = `<div class="row g-3">` + gmData.map(item => `
             <div class="${colClass}">
                 <div class="${cardClass}">
-                    <img src="${item.preview_url}" alt="${item.title}">
+                    <img src="${item.preview_url}" alt="${item.title}" loading="lazy">
                     <div class="p-2">
                         <div class="d-flex justify-content-between align-items-start mb-1">
                             ${gmCheckbox(item)}
@@ -185,14 +191,14 @@ function gmRenderList() {
 
 function gmActionButtons(item) {
     return `
-        <button class="btn btn-outline-info btn-sm" title="Preview" onclick="gmPreview('${item.category}','${item.style_code || item.id}')"><i class="bi bi-eye"></i></button>
-        <button class="btn btn-outline-info btn-sm" title="Copy Preview URL" onclick="gmCopyPreviewUrl('${item.category}','${item.style_code || item.id}')"><i class="bi bi-link-45deg"></i></button>
-        <button class="btn btn-outline-secondary btn-sm" title="Edit" onclick="gmEditItem('${item.id}')"><i class="bi bi-pencil"></i></button>
-        <button class="btn btn-outline-secondary btn-sm" title="Duplicate" onclick="gmDuplicateItem('${item.id}')"><i class="bi bi-files"></i></button>
+        <button class="btn btn-outline-info btn-sm" title="Preview" aria-label="Preview ${item.title}" onclick="gmPreview('${item.category}','${item.style_code || item.id}')"><i class="bi bi-eye"></i></button>
+        <button class="btn btn-outline-info btn-sm" title="Copy Preview URL" aria-label="Copy preview URL for ${item.title}" onclick="gmCopyPreviewUrl('${item.category}','${item.style_code || item.id}')"><i class="bi bi-link-45deg"></i></button>
+        <button class="btn btn-outline-secondary btn-sm" title="Edit" aria-label="Edit ${item.title}" onclick="gmEditItem('${item.id}')"><i class="bi bi-pencil"></i></button>
+        <button class="btn btn-outline-secondary btn-sm" title="Duplicate" aria-label="Duplicate ${item.title}" onclick="gmDuplicateItem('${item.id}')"><i class="bi bi-files"></i></button>
         ${item.status !== 'archived'
-            ? `<button class="btn btn-outline-warning btn-sm" title="Archive" onclick="gmArchive('${item.id}')"><i class="bi bi-archive"></i></button>`
-            : `<button class="btn btn-outline-success btn-sm" title="Restore" onclick="gmRestore('${item.id}')"><i class="bi bi-arrow-counterclockwise"></i></button>`}
-        <button class="btn btn-outline-danger btn-sm" title="Delete" onclick="gmDelete('${item.id}')"><i class="bi bi-trash"></i></button>
+            ? `<button class="btn btn-outline-warning btn-sm" title="Archive" aria-label="Archive ${item.title}" onclick="gmArchive('${item.id}')"><i class="bi bi-archive"></i></button>`
+            : `<button class="btn btn-outline-success btn-sm" title="Restore" aria-label="Restore ${item.title}" onclick="gmRestore('${item.id}')"><i class="bi bi-arrow-counterclockwise"></i></button>`}
+        <button class="btn btn-outline-danger btn-sm" title="Delete" aria-label="Delete ${item.title}" onclick="gmDelete('${item.id}')"><i class="bi bi-trash"></i></button>
     `;
 }
 
@@ -406,6 +412,7 @@ document.getElementById('gmSearch').addEventListener('input', () => {
 document.getElementById('gmCategoryFilter').addEventListener('change', gmResetAndFetch);
 document.getElementById('gmStatusFilter').addEventListener('change', gmResetAndFetch);
 document.getElementById('gmFeaturedFilter').addEventListener('change', gmResetAndFetch);
+document.getElementById('gmRecentFilter').addEventListener('change', gmResetAndFetch);
 document.getElementById('gmSort').addEventListener('change', gmResetAndFetch);
 
 async function gmLoadRecentActivity() {

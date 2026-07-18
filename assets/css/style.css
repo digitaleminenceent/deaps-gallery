@@ -1,6 +1,6 @@
 /* ==========================================
-   DEAPS AI Photography Studio
-   Version 1.1 — Premium Visual Identity
+DEAPS AI Photography Studio
+Version 1.1 — Premium Visual Identity
 ========================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
@@ -24,7 +24,7 @@
 
 /* ================= PREMIUM TITLE TREATMENT ================= */
 /* Shared gold gradient text used by every category / section title
-   so headings read as one consistent, premium identity. */
+so headings read as one consistent, premium identity. */
 
 .gold-heading{
 
@@ -1202,6 +1202,201 @@ padding:34px 24px;
 .admin-login-title{
 
 font-size:26px;
+
+}
+
+}
+
+/* ==========================================
+SEARCHABLE COMBOBOX (Category / Subcategory)
+Ditambah untuk Gallery Management CMS
+========================================== */
+
+.deaps-combobox{
+
+position:relative;
+
+}
+
+.deaps-combobox-input-group{
+
+display:flex;
+
+gap:6px;
+
+}
+
+.deaps-combobox-input{
+
+flex:1;
+
+background-color:#1a1a1a;
+
+color:#ffffff;
+
+border:1px solid #495057;
+
+}
+
+.deaps-combobox-input:focus{
+
+background-color:#1a1a1a;
+
+color:#ffffff;
+
+border-color:var(--gold);
+
+box-shadow:0 0 0 3px rgba(212,175,55,.25);
+
+}
+
+.deaps-combobox-input::placeholder{
+
+color:#888;
+
+}
+
+.deaps-combobox-addbtn{
+
+flex-shrink:0;
+
+}
+
+.deaps-combobox-listbox{
+
+position:absolute;
+
+top:calc(100% + 4px);
+
+left:0;
+right:0;
+
+z-index:1055;
+
+max-height:260px;
+
+overflow-y:auto;
+
+background:#1a1a1a;
+
+border:1px solid #444;
+
+border-radius:6px;
+
+margin:0;
+
+padding:4px;
+
+list-style:none;
+
+box-shadow:0 8px 24px rgba(0,0,0,.5);
+
+}
+
+.deaps-combobox-listbox li{
+
+padding:8px 10px;
+
+border-radius:4px;
+
+cursor:pointer;
+
+font-size:.9rem;
+
+color:#ffffff;
+
+}
+
+.deaps-combobox-listbox li:hover,
+.deaps-combobox-listbox li.active{
+
+background:rgba(212,175,55,.15);
+
+}
+
+.deaps-combobox-listbox li.deaps-group-label{
+
+font-size:.7rem;
+
+text-transform:uppercase;
+
+letter-spacing:.05em;
+
+color:#888;
+
+cursor:default;
+
+padding:6px 10px 2px;
+
+}
+
+.deaps-combobox-listbox li.deaps-group-label:hover{
+
+background:transparent;
+
+}
+
+.deaps-combobox-listbox li.deaps-empty{
+
+color:#888;
+
+cursor:default;
+
+text-align:center;
+
+padding:12px;
+
+}
+
+.deaps-combobox-listbox li.deaps-empty:hover{
+
+background:transparent;
+
+}
+
+.deaps-combobox-listbox li.deaps-add-new{
+
+color:var(--gold2);
+
+border-top:1px solid #333;
+
+margin-top:4px;
+
+font-weight:500;
+
+}
+
+.deaps-combobox-listbox li.deaps-add-new:hover{
+
+background:rgba(212,175,55,.2);
+
+}
+
+.deaps-combobox-listbox::-webkit-scrollbar{
+
+width:6px;
+
+}
+
+.deaps-combobox-listbox::-webkit-scrollbar-track{
+
+background:#111;
+
+}
+
+.deaps-combobox-listbox::-webkit-scrollbar-thumb{
+
+background:#444;
+
+border-radius:3px;
+
+}
+
+@media(max-width:576px){
+
+.deaps-combobox-listbox{
+
+max-height:200px;
 
 }
 

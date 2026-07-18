@@ -1,17 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-
 <title>DEAPS Admin</title>
-
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
 <link rel="stylesheet" href="assets/css/style.css">
-
 </head>
 <body class="admin-page-body admin-glow text-white">
 
@@ -22,32 +17,29 @@
       <span>Digital Eminence AI Photography Studio Admin</span>
     </a>
     <div class="d-flex align-items-center gap-2">
+      <a href="gallery-management.html" class="btn btn-outline-warning btn-sm"><i class="bi bi-images"></i> Gallery Management</a>
       <a href="category-management.html" class="btn btn-outline-warning btn-sm"><i class="bi bi-tags"></i> Categories</a>
       <a href="admin-analytics.html" class="btn btn-outline-warning btn-sm"><i class="bi bi-graph-up"></i> Analytics</a>
+      <button type="button" class="btn btn-outline-warning btn-sm" id="openAuditLogBtn"><i class="bi bi-clock-history"></i> Audit Log</button>
+      <button type="button" class="btn btn-warning btn-sm" id="openBulkUploadBtn"><i class="bi bi-upload"></i> Bulk Upload</button>
       <div id="authArea"></div>
     </div>
   </div>
 </nav>
 
-<!-- TOAST NOTIFICATIONS -->
 <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer" style="z-index: 1080;"></div>
 
 <div class="container py-5">
 
-  <!-- LOGIN CARD -->
   <div id="loginCard" class="admin-auth-wrap mx-auto" style="max-width: 440px; display:none;">
     <div class="admin-login-card">
-
       <div class="admin-login-badge">
         <img src="assets/logo.png" alt="DEAPS" class="admin-login-logo">
       </div>
-
       <p class="admin-login-eyebrow">Studio Control Panel</p>
       <h1 class="admin-login-title">Admin Login</h1>
       <p class="admin-login-subtitle">Sign in to manage the DEAPS AI Photography catalog.</p>
-
       <form id="adminLoginForm" class="admin-login-form" autocomplete="off">
-
         <div class="mb-3">
           <label class="admin-field-label" for="adminEmail">Email</label>
           <div class="admin-input-group">
@@ -55,7 +47,6 @@
             <input type="email" id="adminEmail" class="form-control admin-input" placeholder="admin@deaps.studio" required>
           </div>
         </div>
-
         <div class="mb-3">
           <label class="admin-field-label" for="adminPassword">Password</label>
           <div class="admin-input-group">
@@ -66,21 +57,15 @@
             </button>
           </div>
         </div>
-
         <div id="adminLoginError" class="admin-login-error small mb-2"></div>
-
         <button type="submit" class="btn admin-login-btn w-100">
           <i class="bi bi-shield-lock"></i> Log In to Dashboard
         </button>
-
       </form>
-
       <p class="admin-login-footnote"><i class="bi bi-lock-fill"></i> Authorized DEAPS personnel only</p>
-
     </div>
   </div>
 
-  <!-- ACCESS DENIED -->
   <div id="deniedCard" class="admin-auth-wrap mx-auto text-center" style="max-width: 440px; display:none;">
     <div class="admin-denied-card">
       <div class="admin-denied-icon"><i class="bi bi-shield-exclamation"></i></div>
@@ -89,50 +74,162 @@
     </div>
   </div>
 
-  <!-- DASHBOARD -->
   <div id="dashboard" style="display:none;">
 
     <h2 class="mb-4 gold-heading" id="formHeading">Tambah Gambar Katalog</h2>
+
+    <div class="row g-3 mb-4" id="dashboardSummary">
+      <div class="col-6 col-md-3">
+        <div class="card bg-secondary bg-opacity-25 border-secondary text-center h-100">
+          <div class="card-body">
+            <i class="bi bi-images text-white" style="font-size:1.5rem;"></i>
+            <h3 class="mb-0 mt-2" id="summaryTotal">—</h3>
+            <p class="small text-secondary mb-0">Total Galleries</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card bg-secondary bg-opacity-25 border-secondary text-center h-100">
+          <div class="card-body">
+            <i class="bi bi-pencil-square text-light" style="font-size:1.5rem;"></i>
+            <h3 class="mb-0 mt-2" id="summaryDraft">—</h3>
+            <p class="small text-secondary mb-0">Draft</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card bg-success bg-opacity-25 border-success text-center h-100">
+          <div class="card-body">
+            <i class="bi bi-check-circle text-success" style="font-size:1.5rem;"></i>
+            <h3 class="mb-0 mt-2" id="summaryPublished">—</h3>
+            <p class="small text-secondary mb-0">Published</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card bg-warning bg-opacity-25 border-warning text-center h-100">
+          <div class="card-body">
+            <i class="bi bi-star-fill text-warning" style="font-size:1.5rem;"></i>
+            <h3 class="mb-0 mt-2" id="summaryFeatured">—</h3>
+            <p class="small text-secondary mb-0">Featured</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card bg-danger bg-opacity-25 border-danger text-center h-100">
+          <div class="card-body">
+            <i class="bi bi-archive text-danger" style="font-size:1.5rem;"></i>
+            <h3 class="mb-0 mt-2" id="summaryArchived">—</h3>
+            <p class="small text-secondary mb-0">Archived</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card bg-secondary bg-opacity-25 border-secondary mb-4">
+      <div class="card-body">
+        <h6 class="text-warning mb-3"><i class="bi bi-clock-history"></i> Recent Activity</h6>
+        <div id="recentActivityList" class="small text-secondary">Loading...</div>
+      </div>
+    </div>
 
     <form id="imageForm" class="mb-5">
       <input type="hidden" id="editingId" value="">
       <div class="row g-4">
 
-        <!-- LEFT: IMAGE PREVIEW / UPLOAD -->
         <div class="col-md-5">
-          <label for="imgFile" class="d-block" style="cursor:pointer;">
-            <div id="imgDropArea" class="d-flex align-items-center justify-content-center border border-secondary rounded" style="height:400px; background:#111; overflow:hidden;">
-              <img id="imgPreview" src="" alt="" style="display:none; max-height:100%; max-width:100%; object-fit:contain;">
+          <div class="d-flex flex-wrap gap-1 mb-2" id="imgToolbar">
+            <button type="button" class="btn btn-outline-light btn-sm" id="rotateLeftBtn" title="Rotate Left" aria-label="Rotate image left"><i class="bi bi-arrow-counterclockwise"></i></button>
+            <button type="button" class="btn btn-outline-light btn-sm" id="rotateRightBtn" title="Rotate Right" aria-label="Rotate image right"><i class="bi bi-arrow-clockwise"></i></button>
+            <button type="button" class="btn btn-outline-light btn-sm" id="cropToggleBtn" title="Crop" aria-label="Toggle crop mode"><i class="bi bi-crop"></i> Crop</button>
+            <button type="button" class="btn btn-outline-success btn-sm" id="applyCropBtn" title="Apply Crop" style="display:none;" aria-label="Apply crop"><i class="bi bi-check-lg"></i> Apply</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="resetImageEditBtn" title="Reset" aria-label="Reset image edits"><i class="bi bi-arrow-repeat"></i> Reset</button>
+            <button type="button" class="btn btn-outline-info btn-sm" id="downloadOriginalBtn" title="Download Original" style="display:none;" aria-label="Download original image"><i class="bi bi-download"></i></button>
+          </div>
+          <label for="imgFile" class="d-block" id="imgFileLabel" style="cursor:pointer;">
+            <div id="imgDropArea" class="position-relative d-flex align-items-center justify-content-center border border-secondary rounded" style="height:400px; background:#111; overflow:hidden;">
+              <img id="imgPreview" src="" alt="Catalog image preview" style="display:none; max-height:100%; max-width:100%; object-fit:contain;">
+              <canvas id="imgCropCanvas" style="display:none; max-height:100%; max-width:100%; pointer-events:none;"></canvas>
               <div id="imgPlaceholder" class="text-center text-secondary">
-                <i class="bi bi-image" style="font-size:3rem;"></i>
+                <i class="bi bi-image" style="font-size:3rem;" aria-hidden="true"></i>
                 <p class="mt-2 mb-0">Klik untuk pilih gambar</p>
               </div>
             </div>
           </label>
-          <input type="file" id="imgFile" class="d-none" accept="image/*">
+          <input type="file" id="imgFile" class="d-none" accept="image/jpeg,image/png,image/webp">
           <p class="small text-secondary mt-2 mb-0" id="imgChangeHint" style="display:none;">
             <i class="bi bi-info-circle"></i> Klik gambar di atas untuk tukar gambar. Jika tiada gambar baru dipilih, gambar sedia ada akan dikekalkan.
           </p>
+          <p class="small text-secondary mt-2 mb-0"><i class="bi bi-info-circle"></i> Format diterima: JPG, PNG, WEBP. Saiz maksimum: 15MB. Resolusi minimum: 800x800px.</p>
+          <div id="imgValidationMsg" class="small mt-2" style="display:none;"></div>
+          <div id="imgUploadProgressWrap" style="display:none;" class="mt-2">
+            <div class="progress" style="height:18px;">
+              <div class="progress-bar bg-warning" id="imgUploadProgressBar" style="width:0%;">0%</div>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-danger mt-2" id="cancelSingleUploadBtn">
+              <i class="bi bi-x-circle"></i> Cancel Upload
+            </button>
+          </div>
         </div>
 
-        <!-- RIGHT: DETAILS -->
         <div class="col-md-7">
           <div class="mb-3">
             <label class="form-label">Title</label>
             <input type="text" id="imgTitle" class="form-control" required>
           </div>
+
           <div class="mb-3">
-            <label class="form-label">Category</label>
-            <select id="imgCategory" class="form-select" required>
+            <label class="form-label" id="imgCategoryLabel">Category</label>
+            <div class="deaps-combobox" id="categoryComboboxWrap">
+              <div class="deaps-combobox-input-group">
+                <input type="text"
+                       class="form-control deaps-combobox-input"
+                       id="imgCategoryInput"
+                       role="combobox"
+                       aria-expanded="false"
+                       aria-haspopup="listbox"
+                       aria-controls="imgCategoryListbox"
+                       aria-labelledby="imgCategoryLabel"
+                       aria-autocomplete="list"
+                       autocomplete="off"
+                       placeholder="Cari atau pilih kategori...">
+                <button type="button" class="btn btn-outline-warning deaps-combobox-addbtn" id="addCategoryBtn" title="Tambah Kategori Baru" aria-label="Tambah kategori baru">
+                  <i class="bi bi-plus-lg"></i>
+                </button>
+              </div>
+              <ul class="deaps-combobox-listbox" id="imgCategoryListbox" role="listbox" aria-label="Senarai kategori" style="display:none;"></ul>
+            </div>
+            <select id="imgCategory" class="form-select d-none" required>
               <option value="">Loading categories...</option>
             </select>
           </div>
+
           <div class="mb-3" id="subcategoryWrap" style="display:none;">
-            <label class="form-label">Subcategory</label>
-            <select id="imgSubcategory" class="form-select">
+            <label class="form-label" id="imgSubcategoryLabel">Subcategory</label>
+            <div class="deaps-combobox" id="subcategoryComboboxWrap">
+              <div class="deaps-combobox-input-group">
+                <input type="text"
+                       class="form-control deaps-combobox-input"
+                       id="imgSubcategoryInput"
+                       role="combobox"
+                       aria-expanded="false"
+                       aria-haspopup="listbox"
+                       aria-controls="imgSubcategoryListbox"
+                       aria-labelledby="imgSubcategoryLabel"
+                       aria-autocomplete="list"
+                       autocomplete="off"
+                       placeholder="Cari atau pilih subkategori...">
+                <button type="button" class="btn btn-outline-warning deaps-combobox-addbtn" id="addSubcategoryBtn" title="Tambah Subkategori Baru" aria-label="Tambah subkategori baru">
+                  <i class="bi bi-plus-lg"></i>
+                </button>
+              </div>
+              <ul class="deaps-combobox-listbox" id="imgSubcategoryListbox" role="listbox" aria-label="Senarai subkategori" style="display:none;"></ul>
+            </div>
+            <select id="imgSubcategory" class="form-select d-none">
               <option value="">— None —</option>
             </select>
           </div>
+
           <div class="mb-3">
             <label class="form-label">Description <span class="text-secondary small">(dipaparkan kepada customer)</span></label>
             <textarea id="imgDescription" class="form-control" rows="2"></textarea>
@@ -140,6 +237,40 @@
           <div class="mb-3">
             <label class="form-label">AI Prompt <span class="text-warning small">(rujukan admin sahaja, tidak dipaparkan kepada customer)</span></label>
             <textarea id="imgAdminPrompt" class="form-control" rows="3" placeholder="Contoh: portrait of a woman, studio lighting, 85mm lens..."></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Slug <span class="text-secondary small">(auto dari title, boleh edit)</span></label>
+            <input type="text" id="imgSlug" class="form-control" placeholder="akan-auto-generate">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Tags <span class="text-secondary small">(pisahkan dengan koma)</span></label>
+            <input type="text" id="imgTags" class="form-control" placeholder="editorial, studio, luxury">
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <label class="form-label">Status</label>
+              <select id="imgStatus" class="form-select">
+                <option value="draft">Draft</option>
+                <option value="published" selected>Published</option>
+                <option value="archived">Archived</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Featured Priority</label>
+              <input type="number" id="imgFeaturedPriority" class="form-control" value="0">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Display Order</label>
+              <input type="number" id="imgDisplayOrder" class="form-control" value="0">
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">SEO Title <span class="text-secondary small">(optional)</span></label>
+            <input type="text" id="imgSeoTitle" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Meta Description <span class="text-secondary small">(optional)</span></label>
+            <textarea id="imgMetaDescription" class="form-control" rows="2"></textarea>
           </div>
           <div class="mb-3">
             <label class="form-label">Price (RM)</label>
@@ -157,10 +288,17 @@
             <button type="button" class="btn btn-outline-info" id="duplicateBtn" style="display:none;">
               <i class="bi bi-files"></i> Duplicate
             </button>
+            <button type="button" class="btn btn-outline-light" id="previewBtn" style="display:none;">
+              <i class="bi bi-eye"></i> Preview
+            </button>
+            <button type="button" class="btn btn-outline-light" id="copyPreviewUrlBtn" style="display:none;">
+              <i class="bi bi-link-45deg"></i> Copy Preview URL
+            </button>
             <button type="button" class="btn btn-outline-secondary" id="cancelEditBtn" style="display:none;">
               <i class="bi bi-x-circle"></i> Cancel Edit
             </button>
           </div>
+          <p class="small text-secondary mt-2 mb-0" id="autoSaveStatus" style="display:none;"></p>
         </div>
 
       </div>
@@ -168,11 +306,273 @@
 
     <hr class="border-secondary">
 
-    <h2 class="mb-4 gold-heading">Senarai Katalog</h2>
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+      <h2 class="mb-0 gold-heading">Senarai Katalog</h2>
+      <div class="btn-group btn-group-sm">
+        <button type="button" class="btn btn-outline-light active" id="catalogTabBtn">
+          <i class="bi bi-images"></i> Katalog
+        </button>
+        <button type="button" class="btn btn-outline-danger" id="recycleBinTabBtn">
+          <i class="bi bi-trash3"></i> Recycle Bin <span class="badge text-bg-danger" id="recycleBinCount">0</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="row g-2 mb-3 align-items-center" id="catalogControls">
+      <div class="col-md-4">
+        <input type="text" id="catalogSearch" class="form-control" placeholder="Cari title, slug, atau kategori...">
+      </div>
+      <div class="col-md-2">
+        <select id="filterStatus" class="form-select">
+          <option value="">Semua Status</option>
+          <option value="draft">Draft</option>
+          <option value="published">Published</option>
+          <option value="archived">Archived</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <select id="filterCategory" class="form-select">
+          <option value="">Semua Kategori</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <select id="filterFeatured" class="form-select">
+          <option value="">Semua</option>
+          <option value="true">Featured Sahaja</option>
+          <option value="false">Bukan Featured</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <select id="sortBy" class="form-select">
+          <option value="created_desc">Terkini</option>
+          <option value="created_asc">Terlama</option>
+          <option value="title_asc">Alphabetical (A-Z)</option>
+          <option value="updated_desc">Baru Dikemaskini</option>
+          <option value="display_order_asc">Display Order</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="mb-2 p-2 rounded bg-warning bg-opacity-10 border border-warning" id="bulkActionsBar" style="display:none;">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="d-flex align-items-center gap-2">
+          <span class="text-warning small fw-bold"><span id="bulkSelectedCount">0</span> item dipilih</span>
+          <button type="button" class="btn btn-sm btn-outline-light" id="bulkSelectAllBtn">Pilih Semua</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="bulkClearBtn">Clear</button>
+        </div>
+        <div class="d-flex flex-wrap gap-2" id="bulkActionButtons">
+          <button type="button" class="btn btn-sm btn-outline-success" id="bulkPublishBtn"><i class="bi bi-check-circle"></i> Publish</button>
+          <button type="button" class="btn btn-sm btn-outline-warning" id="bulkUnpublishBtn"><i class="bi bi-eye-slash"></i> Unpublish</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="bulkDraftBtn"><i class="bi bi-pencil-square"></i> Set Draft</button>
+          <button type="button" class="btn btn-sm btn-outline-warning" id="bulkArchiveBtn"><i class="bi bi-archive"></i> Archive</button>
+          <select class="form-select form-select-sm" id="bulkMoveCategory" style="width:auto;">
+            <option value="">Move to Category...</option>
+          </select>
+          <button type="button" class="btn btn-sm btn-outline-info" id="bulkMoveBtn">Move</button>
+          <select class="form-select form-select-sm" id="bulkMoveSubcategory" style="width:auto;">
+            <option value="">Move to Subcategory...</option>
+          </select>
+          <button type="button" class="btn btn-sm btn-outline-info" id="bulkMoveSubcategoryBtn">Move Sub</button>
+          <button type="button" class="btn btn-sm btn-outline-danger" id="bulkDeleteBtn"><i class="bi bi-trash"></i> Delete</button>
+          <button type="button" class="btn btn-sm btn-outline-warning" id="bulkMarkFeaturedBtn"><i class="bi bi-star-fill"></i> Mark Featured</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="bulkRemoveFeaturedBtn"><i class="bi bi-star"></i> Remove Featured</button>
+          <button type="button" class="btn btn-sm btn-outline-info" id="bulkDuplicateBtn"><i class="bi bi-files"></i> Duplicate</button>
+        </div>
+      </div>
+      <div id="bulkActionProgressWrap" style="display:none;" class="mt-2">
+        <div class="progress" style="height:18px;">
+          <div class="progress-bar bg-warning" id="bulkActionProgressBar" style="width:0%;">0%</div>
+        </div>
+        <div class="d-flex justify-content-between align-items-center mt-1">
+          <span class="small text-secondary" id="bulkActionProgressText"></span>
+          <button type="button" class="btn btn-sm btn-outline-danger" id="cancelBulkActionBtn">
+            <i class="bi bi-x-circle"></i> Cancel
+          </button>
+        </div>
+      </div>
+    </div>    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+      <div class="d-flex align-items-center gap-2">
+        <input type="checkbox" class="form-check-input" id="selectAllOnPageCheckbox" title="Pilih semua pada halaman ini">
+        <p class="small text-secondary mb-0" id="catalogResultCount"></p>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <div class="btn-group btn-group-sm" id="viewToggleControls">
+          <button type="button" class="btn btn-outline-light active" id="cardViewBtn" title="Card View"><i class="bi bi-grid-3x3-gap"></i></button>
+          <button type="button" class="btn btn-outline-light" id="tableViewBtn" title="Table View"><i class="bi bi-list-ul"></i></button>
+        </div>
+        <div class="btn-group btn-group-sm" id="paginationControls">
+          <button type="button" class="btn btn-outline-light" id="prevPageBtn"><i class="bi bi-chevron-left"></i> Prev</button>
+          <span class="btn btn-outline-light disabled" id="pageIndicator">Page 1</span>
+          <button type="button" class="btn btn-outline-light" id="nextPageBtn">Next <i class="bi bi-chevron-right"></i></button>
+        </div>
+      </div>
+    </div>
+
     <div id="catalogList" class="row g-3"></div>
+
+    <div id="catalogTableWrap" style="display:none;">
+      <div class="table-responsive">
+        <table class="table table-dark table-hover align-middle">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Preview</th>
+              <th>Style Code</th>
+              <th>Title</th>
+              <th>Category</th>
+              <th>Price</th>
+              <th>Status</th>
+              <th>Featured</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="catalogTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="recycleBinView" style="display:none;">
+      <div class="alert alert-warning small mb-3">
+        <i class="bi bi-info-circle"></i> Item dalam Recycle Bin telah di-archive. Anda boleh Restore kembali ke Draft, atau padam secara kekal.
+      </div>
+      <div id="recycleBinList" class="row g-3"></div>
+    </div>
 
   </div>
 
+</div>
+
+<div class="modal fade" id="auditLogModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content bg-dark text-white border-secondary">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title"><i class="bi bi-clock-history"></i> Audit Log</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-2 mb-3">
+          <div class="col-md-6">
+            <select id="auditFilterAction" class="form-select form-select-sm">
+              <option value="">Semua Tindakan</option>
+              <option value="create">Create</option>
+              <option value="update">Update</option>
+              <option value="publish">Publish</option>
+              <option value="archive">Archive</option>
+              <option value="restore">Restore</option>
+              <option value="delete">Delete</option>
+              <option value="delete_permanent">Delete Permanent</option>
+              <option value="bulk_action">Bulk Action</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <input type="text" id="auditSearch" class="form-control form-control-sm" placeholder="Cari title atau style code...">
+          </div>
+        </div>
+        <div id="auditLogList" class="small">Loading...</div>
+      </div>
+      <div class="modal-footer border-secondary">
+        <button type="button" class="btn btn-sm btn-outline-light" id="auditLoadMoreBtn">Load More</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="bulkUploadModal" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content bg-dark text-white border-secondary">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title"><i class="bi bi-upload"></i> Bulk Upload Gambar</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" id="bulkUploadCloseBtn"></button>
+      </div>
+      <div class="modal-body">
+
+        <div class="alert alert-secondary small mb-3">
+          <i class="bi bi-info-circle"></i> Format diterima: JPG, PNG, WEBP. Saiz maksimum: 15MB setiap fail. Resolusi minimum: 800x800px. Fail pendua (nama sama) akan dilangkau secara automatik.
+        </div>
+
+        <div class="row g-2 mb-3">
+          <div class="col-md-6">
+            <label class="form-label small">Kategori (untuk semua item)</label>
+            <select id="bulkUploadCategory" class="form-select form-select-sm">
+              <option value="">— Pilih kategori —</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small">Status (untuk semua item)</label>
+            <select id="bulkUploadStatus" class="form-select form-select-sm">
+              <option value="draft" selected>Draft</option>
+              <option value="published">Published</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="bulkDropZone" class="border border-secondary border-2 rounded d-flex flex-column align-items-center justify-content-center text-center text-secondary p-4 mb-3" style="min-height:160px; cursor:pointer; border-style:dashed !important;">
+          <i class="bi bi-cloud-arrow-up" style="font-size:2.5rem;"></i>
+          <p class="mb-0 mt-2">Drag & drop gambar di sini, atau klik untuk pilih fail</p>
+          <p class="small mb-0">Boleh pilih beberapa gambar sekali gus (JPG, PNG, WEBP)</p>
+        </div>
+        <input type="file" id="bulkFileInput" class="d-none" accept="image/jpeg,image/png,image/webp" multiple>
+
+        <div id="bulkValidationSummary" class="small mb-3" style="display:none;"></div>
+
+        <div id="bulkFileListWrap" style="display:none;">
+          <p class="small text-secondary mb-2"><span id="bulkFileCount">0</span> fail sah untuk diupload</p>
+          <div id="bulkFileList" class="row g-2 mb-3"></div>
+        </div>
+
+        <div id="bulkUploadProgress" style="display:none;">
+          <div class="progress mb-2" style="height:20px;">
+            <div class="progress-bar bg-warning" id="bulkProgressBar" style="width:0%;">0%</div>
+          </div>
+          <p class="small text-secondary mb-2" id="bulkProgressText"></p>
+          <button type="button" class="btn btn-sm btn-outline-danger" id="cancelBulkUploadBtn">
+            <i class="bi bi-x-circle"></i> Cancel Upload
+          </button>
+        </div>
+
+      </div>
+      <div class="modal-footer border-secondary">
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="bulkClearFilesBtn">Clear Semua</button>
+        <button type="button" class="btn btn-sm btn-warning" id="bulkStartUploadBtn" disabled>
+          <i class="bi bi-upload"></i> Upload Semua
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="offcanvas offcanvas-end bg-dark text-white border-secondary" tabindex="-1" id="quickAddDrawer" aria-labelledby="quickAddDrawerLabel">
+  <div class="offcanvas-header border-secondary">
+    <h5 class="offcanvas-title" id="quickAddDrawerLabel"><i class="bi bi-tags"></i> Tambah Baru</h5>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+  </div>
+  <div class="offcanvas-body">
+    <form id="quickAddForm">
+      <input type="hidden" id="quickAddType" value="category">
+      <input type="hidden" id="quickAddParentCategoryId" value="">
+
+      <div class="mb-3">
+        <label class="form-label" for="quickAddName">Nama <span class="text-danger">*</span></label>
+        <input type="text" id="quickAddName" class="form-control" required autofocus>
+      </div>
+
+      <div class="mb-3" id="quickAddPrefixWrap">
+        <label class="form-label" for="quickAddPrefix">Code Prefix <span class="text-secondary small">(contoh: WED, POR)</span></label>
+        <input type="text" id="quickAddPrefix" class="form-control" maxlength="5" style="text-transform:uppercase;">
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label" for="quickAddDisplayOrder">Display Order</label>
+        <input type="number" id="quickAddDisplayOrder" class="form-control" value="0">
+      </div>
+
+      <div id="quickAddError" class="text-danger small mb-2"></div>
+
+      <button type="submit" class="btn btn-warning w-100" id="quickAddSubmitBtn">
+        <i class="bi bi-check-lg"></i> Simpan & Guna
+      </button>
+    </form>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

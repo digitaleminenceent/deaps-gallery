@@ -85,8 +85,9 @@ function rbRenderList(list) {
                 <div class="p-2">
                     <div class="d-flex justify-content-between align-items-start mb-1">
                         <input type="checkbox" class="form-check-input rb-item-checkbox" data-id="${item.id}" ${checked} onclick="rbToggleSelect('${item.id}', this.checked)">
-                        <span class="badge bg-secondary rb-badge-days">${days} day${days === 1 ? '' : 's'} ago</span>
+                        <span class="badge bg-secondary rb-badge-days" title="${new Date(item.deleted_at).toLocaleString('en-MY')}">${days} day${days === 1 ? '' : 's'} ago</span>
                     </div>
+                    <p class="text-secondary small mb-1" style="font-size:.7rem;">Deleted: ${new Date(item.deleted_at).toLocaleString('en-MY', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })}</p>
                     <h6 class="mb-1 small">${item.title}</h6>
                     <p class="text-secondary small mb-1">Slug: ${item.slug || '—'}</p>
                     <p class="text-secondary small mb-1">${item.category || ''}${item.subcategories ? ' / ' + item.subcategories.name : ''}</p>
@@ -115,6 +116,44 @@ document.getElementById('rbSelectAll').addEventListener('change', (e) => {
     document.getElementById('rbSelectedCount').textContent = `${rbSelectedIds.size} selected`;
     rbApplyFilters();
 });
+
+// ---- RECOVERY PREVIEW MODAL ----
+let rbPreviewModal = null;
+
+function rbShowPreview({ title, bodyHtml, confirmLabel, confirmClass, onConfirm }) {
+    if (!rbPreviewModal) rbPreviewModal = new bootstrap.Modal(document.getElementById('rbPreviewModal'));
+
+    document.getElementById('rbPreviewTitle').textContent = title;
+    document.getElementById('rbPreviewBody').innerHTML = bodyHtml;
+
+    const btn = document.getElementById('rbPreviewConfirmBtn');
+    btn.className = `btn ${confirmClass}`;
+    btn.textContent = confirmLabel;
+
+    // Replace node to clear old listeners before attaching new one
+    const freshBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(freshBtn, btn);
+    freshBtn.addEventListener('click', async () => {
+        rbPreviewModal.hide();
+        await onConfirm();
+    });
+
+    rbPreviewModal.show();
+}
+
+function rbItemPreviewHtml(item) {
+    return `
+        <div class="d-flex gap-3">
+            <img src="${item.preview_url}" style="width:80px; height:80px; object-fit:cover; border-radius:8px;">
+            <div>
+                <strong>${item.title}</strong>
+                <p class="small text-secondary mb-0">Slug: ${item.slug || '—'}</p>
+                <p class="small text-secondary mb-0">${item.category || ''}${item.subcategories ? ' / ' + item.subcategories.name : ''}</p>
+                <p class="small text-secondary mb-0">Status: ${item.status || '—'}</p>
+            </div>
+        </div>
+    `;
+}
 
 // ---- Extract storage file path from a Supabase public URL ----
 function rbExtractStoragePath(publicUrl) {
@@ -163,74 +202,108 @@ async function rbRestore(id) {
     const item = rbData.find(i => i.id === id);
     if (!item) return;
 
-    const { error } = await supabaseClient
-        .from('images')
-        .update({ deleted_at: null, is_active: item.status !== 'archived', deleted_by: null, deleted_by_email: null })
-        .eq('id', id);
+    rbShowPreview({
+        title: 'Restore Gallery Item?',
+        bodyHtml: rbItemPreviewHtml(item) + `<p class="small text-secondary mt-3 mb-0">Item akan dipulihkan dengan status asal (<strong>${item.status || 'draft'}</strong>) dan semua field lain (kategori, subkategori, featured, SEO) dikekalkan tepat seperti sebelum dipadam.</p>`,
+        confirmLabel: 'Restore',
+        confirmClass: 'btn-success',
+        onConfirm: async () => {
+            const { error } = await supabaseClient
+                .from('images')
+                .update({ deleted_at: null, is_active: item.status !== 'archived', deleted_by: null, deleted_by_email: null })
+                .eq('id', id);
 
-    if (error) { rbShowToast(error.message, 'danger'); return; }
+            if (error) { rbShowToast(error.message, 'danger'); return; }
 
-    await rbLogAudit('restore', id, item.title);
-    rbShowToast(`Item dipulihkan dengan status asal: ${item.status || 'draft'}.`);
-    rbSelectedIds.delete(id);
-    rbLoadData();
+            await rbLogAudit('restore', id, item.title);
+            rbShowToast(`Item dipulihkan dengan status asal: ${item.status || 'draft'}.`);
+            rbSelectedIds.delete(id);
+            rbLoadData();
+        }
+    });
 }
 
 async function rbDelete(id) {
     const item = rbData.find(i => i.id === id);
     if (!item) return;
 
-    if (!confirm(`Padam "${item.title}" secara KEKAL? Fail gambar juga akan dipadam. Tindakan ini tidak boleh diundur.`)) return;
+    rbShowPreview({
+        title: 'Delete Permanently?',
+        bodyHtml: rbItemPreviewHtml(item) + `<p class="small text-danger mt-3 mb-0"><strong>This action cannot be undone.</strong> Fail gambar (preview & full-res) juga akan dipadam kekal dari storage.</p>`,
+        confirmLabel: 'Delete Permanently',
+        confirmClass: 'btn-danger',
+        onConfirm: async () => {
+            await rbDeleteStorageFiles(item);
 
-    await rbDeleteStorageFiles(item);
+            const { error } = await supabaseClient.from('images').delete().eq('id', id);
 
-    const { error } = await supabaseClient.from('images').delete().eq('id', id);
+            if (error) { rbShowToast(error.message, 'danger'); return; }
 
-    if (error) { rbShowToast(error.message, 'danger'); return; }
-
-    await rbLogAudit('permanent_delete', id, item.title);
-    rbShowToast('Item dipadam kekal.');
-    rbSelectedIds.delete(id);
-    rbLoadData();
+            await rbLogAudit('permanent_delete', id, item.title);
+            rbShowToast('Item dipadam kekal.');
+            rbSelectedIds.delete(id);
+            rbLoadData();
+        }
+    });
 }
 
 async function rbBulkRestore() {
     const ids = Array.from(rbSelectedIds);
     if (!ids.length) return;
-    if (!confirm(`Restore ${ids.length} item(s)? Status asal setiap item akan dikekalkan.`)) return;
 
-    for (const id of ids) {
-        const item = rbData.find(i => i.id === id);
-        if (!item) continue;
-        await supabaseClient.from('images').update({
-            deleted_at: null,
-            is_active: item.status !== 'archived',
-            deleted_by: null,
-            deleted_by_email: null
-        }).eq('id', id);
-        await rbLogAudit('restore', id, item.title);
-    }
+    const items = ids.map(id => rbData.find(i => i.id === id)).filter(Boolean);
+    const previewList = items.slice(0, 5).map(i => `<li>${i.title} <span class="text-secondary small">(${i.status || 'draft'})</span></li>`).join('');
 
-    rbShowToast(`${ids.length} item(s) dipulihkan.`);
-    rbSelectedIds.clear();
-    rbLoadData();
+    rbShowPreview({
+        title: `Restore ${ids.length} Item(s)?`,
+        bodyHtml: `<ul class="small mb-0">${previewList}${items.length > 5 ? `<li class="text-secondary">+${items.length - 5} more...</li>` : ''}</ul><p class="small text-secondary mt-3 mb-0">Status asal setiap item akan dikekalkan.</p>`,
+        confirmLabel: `Restore ${ids.length} Item(s)`,
+        confirmClass: 'btn-success',
+        onConfirm: async () => {
+            for (const id of ids) {
+                const item = rbData.find(i => i.id === id);
+                if (!item) continue;
+                await supabaseClient.from('images').update({
+                    deleted_at: null,
+                    is_active: item.status !== 'archived',
+                    deleted_by: null,
+                    deleted_by_email: null
+                }).eq('id', id);
+                await rbLogAudit('restore', id, item.title);
+            }
+
+            rbShowToast(`${ids.length} item(s) dipulihkan.`);
+            rbSelectedIds.clear();
+            rbLoadData();
+        }
+    });
 }
 
 async function rbBulkDelete() {
     const ids = Array.from(rbSelectedIds);
     if (!ids.length) return;
-    if (!confirm(`Padam ${ids.length} item(s) secara KEKAL? Fail gambar juga akan dipadam. Tindakan ini tidak boleh diundur.`)) return;
 
-    for (const id of ids) {
-        const item = rbData.find(i => i.id === id);
-        if (item) await rbDeleteStorageFiles(item);
-        await supabaseClient.from('images').delete().eq('id', id);
-        await rbLogAudit('permanent_delete', id, item ? item.title : null);
-    }
+    const items = ids.map(id => rbData.find(i => i.id === id)).filter(Boolean);
+    const previewList = items.slice(0, 5).map(i => `<li>${i.title}</li>`).join('');
 
-    rbShowToast(`${ids.length} item(s) dipadam kekal.`);
-    rbSelectedIds.clear();
-    rbLoadData();
+    rbShowPreview({
+        title: `Delete ${ids.length} Item(s) Permanently?`,
+        bodyHtml: `<ul class="small mb-0">${previewList}${items.length > 5 ? `<li class="text-secondary">+${items.length - 5} more...</li>` : ''}</ul><p class="small text-danger mt-3 mb-0"><strong>This action cannot be undone.</strong> Fail gambar juga akan dipadam kekal dari storage.</p>`,
+        confirmLabel: `Delete ${ids.length} Item(s) Permanently`,
+        confirmClass: 'btn-danger',
+        onConfirm: async () => {
+            for (const id of ids) {
+                const item = rbData.find(i => i.id === id);
+                if (item) await rbDeleteStorageFiles(item);
+                await supabaseClient.from('images').delete().eq('id', id);
+                await rbLogAudit('permanent_delete', id, item ? item.title : null);
+            }
+
+            rbShowToast(`${ids.length} item(s) dipadam kekal.`);
+            rbSelectedIds.clear();
+            rbLoadData();
+        }
+    });
 }
 
 (async function init() {

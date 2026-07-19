@@ -1,17 +1,13 @@
 // ======================================
-// DEAPS APP.JS v4.2 (Supabase — dynamic categories + system categories, cached, with counts, lazy loading, badges)
+// DEAPS APP.JS v4.3 (Supabase — dynamic categories + system categories, cached, with counts, lazy loading, badges)
+// FIX: Featured homepage section now matches Featured system category logic (is_featured = true)
 // ======================================
 
 document.addEventListener("DOMContentLoaded", () => {
-
     initSearch();
-
     loadCategories();
-
     loadFeatured();
-
     loadNewest();
-
 });
 
 // ======================================
@@ -64,43 +60,30 @@ function renderCategorySkeleton(grid) {
 
 function buildCategoryCardHtml(cat) {
     return `
-
 <div class="col-lg-3 col-md-4 col-6">
+    <a href="gallery.html?category=${cat.slug}" class="text-decoration-none" onclick="setLastNav('${cat.slug}')">
+        <div class="category-card" style="position:relative;">
+            ${cat.banner_url
+                ? `<img src="${cat.banner_url}" loading="lazy" alt="${cat.name}">`
+                : `<div style="width:100%; height:100%; background:${cat.color || '#D4AF37'}22; display:flex; align-items:center; justify-content:center;">
+                     <i class="bi ${cat.icon || 'bi-folder'}" style="font-size:3rem; color:${cat.color || '#D4AF37'};"></i>
+                   </div>`
+            }
 
-<a href="gallery.html?category=${cat.slug}" class="text-decoration-none" onclick="setLastNav('${cat.slug}')">
+            ${cat.badge ? `<span class="badge bg-warning text-dark position-absolute top-0 end-0 m-2">${cat.badge}</span>` : ''}
 
-<div class="category-card" style="position:relative;">
-
-${cat.banner_url
-    ? `<img src="${cat.banner_url}" loading="lazy">`
-    : `<div style="width:100%; height:100%; background:${cat.color || '#D4AF37'}22; display:flex; align-items:center; justify-content:center;">
-         <i class="bi ${cat.icon || 'bi-folder'}" style="font-size:3rem; color:${cat.color || '#D4AF37'};"></i>
-       </div>`
-}
-
-${cat.badge ? `<span class="badge bg-warning text-dark position-absolute top-0 end-0 m-2">${cat.badge}</span>` : ''}
-
-<div class="overlay">
-
-<h4>${cat.name}</h4>
-
-<p class="small mb-0" style="opacity:.75;">${cat.itemCount} item${cat.itemCount === 1 ? '' : 's'}</p>
-
+            <div class="overlay">
+                <h4>${cat.name}</h4>
+                <p class="small mb-0" style="opacity:.75;">${cat.itemCount} item${cat.itemCount === 1 ? '' : 's'}</p>
+            </div>
+        </div>
+    </a>
 </div>
-
-</div>
-
-</a>
-
-</div>
-
 `;
 }
 
 async function loadCategories() {
-
     const grid = document.getElementById("categoryGrid");
-
     if (!grid) return;
 
     renderCategorySkeleton(grid);
@@ -124,7 +107,6 @@ async function loadCategories() {
         setCachedData('deaps_categories_cache', categories);
     }
 
-    // Single query to get all active images (used for both All Styles count and per-category counts)
     const { data: imageRefs } = await supabaseClient
         .from('images')
         .select('category_id, is_featured')
@@ -160,13 +142,13 @@ async function loadCategories() {
         }
 
         // FUTURE READY — uncomment when these features are implemented
-        // { slug: "editors-choice", name: "Editor's Choice", icon: "bi-award-fill", color: "#D4AF37", banner_url: null, itemCount: 0, badge: null },
-        // { slug: "trending", name: "Trending Styles", icon: "bi-graph-up-arrow", color: "#D4AF37", banner_url: null, itemCount: 0, badge: "🔥" },
-        // { slug: "new-arrivals", name: "New Arrivals", icon: "bi-stars", color: "#D4AF37", banner_url: null, itemCount: 0, badge: "New" },
-        // { slug: "most-rated", name: "Most Rated", icon: "bi-heart-fill", color: "#D4AF37", banner_url: null, itemCount: 0, badge: null },
-        // { slug: "most-shared", name: "Most Shared", icon: "bi-share-fill", color: "#D4AF37", banner_url: null, itemCount: 0, badge: null },
-        // { slug: "community-favorites", name: "Community Favorites", icon: "bi-people-fill", color: "#D4AF37", banner_url: null, itemCount: 0, badge: null },
-        // { slug: "seasonal", name: "Seasonal Collections", icon: "bi-snow", color: "#D4AF37", banner_url: null, itemCount: 0, badge: null }
+        // ,{ slug: "editors-choice", name: "Editor's Choice", icon: "bi-award-fill", color: "#D4AF37", banner_url: null, itemCount: 0, badge: null }
+        // ,{ slug: "trending", name: "Trending Styles", icon: "bi-graph-up-arrow", color: "#D4AF37", banner_url: null, itemCount: 0, badge: "🔥" }
+        // ,{ slug: "new-arrivals", name: "New Arrivals", icon: "bi-stars", color: "#D4AF37", banner_url: null, itemCount: 0, badge: "New" }
+        // ,{ slug: "most-rated", name: "Most Rated", icon: "bi-heart-fill", color: "#D4AF37", banner_url: null, itemCount: 0, badge: null }
+        // ,{ slug: "most-shared", name: "Most Shared", icon: "bi-share-fill", color: "#D4AF37", banner_url: null, itemCount: 0, badge: null }
+        // ,{ slug: "community-favorites", name: "Community Favorites", icon: "bi-people-fill", color: "#D4AF37", banner_url: null, itemCount: 0, badge: null }
+        // ,{ slug: "seasonal", name: "Seasonal Collections", icon: "bi-snow", color: "#D4AF37", banner_url: null, itemCount: 0, badge: null }
     ];
 
     const dynamicCards = (categories || []).map(cat => ({
@@ -181,9 +163,7 @@ async function loadCategories() {
     }
 
     const allCards = [...systemCards, ...dynamicCards];
-
     grid.innerHTML = allCards.map(buildCategoryCardHtml).join('');
-
 }
 
 // ======================================
@@ -191,45 +171,31 @@ async function loadCategories() {
 // ======================================
 
 function initSearch() {
-
     const input = document.querySelector(".search-box input");
     const button = document.querySelector(".search-box button");
 
     if (!input) return;
 
     input.addEventListener("keypress", function (e) {
-
         if (e.key === "Enter") {
-
             searchStyle();
-
         }
-
     });
 
     if (button) {
-
         button.onclick = searchStyle;
-
     }
-
 }
 
 async function searchStyle() {
-
     const input = document.querySelector(".search-box input");
-
     const keyword = input.value.trim().toLowerCase();
 
     if (keyword === "") {
-
-        alert("Please enter Style Code.");
-
+        alert("Please enter Style Code or Style Name.");
         return;
-
     }
 
-    // Try exact style code match first
     let { data, error } = await supabaseClient
         .from('images')
         .select('id, title, category, style_code')
@@ -237,7 +203,6 @@ async function searchStyle() {
         .ilike('style_code', keyword)
         .limit(1);
 
-    // Fallback: title contains keyword
     if (!data || data.length === 0) {
         const fallback = await supabaseClient
             .from('images')
@@ -251,154 +216,120 @@ async function searchStyle() {
     }
 
     if (error || !data || data.length === 0) {
-
         alert("Style not found.");
-
         return;
-
     }
 
     const result = data[0];
-
-    window.location.href =
-        `gallery.html?category=${result.category}&style=${result.style_code}`;
-
+    window.location.href = `gallery.html?category=${result.category}&style=${result.style_code}`;
 }
 
 // ======================================
-// FEATURED (newest 4 active images)
+// FEATURED (top 4 featured active images)
+// FIX: now uses is_featured = true, matching Featured system category
 // ======================================
 
 async function loadFeatured() {
-
     const box = document.getElementById("featuredStyles");
-
     if (!box) return;
+
+    box.innerHTML = '';
 
     const { data, error } = await supabaseClient
         .from('images')
-        .select('id, title, category, preview_url, style_code')
+        .select('id, title, category, preview_url, style_code, is_featured, created_at')
         .eq('is_active', true)
+        .eq('is_featured', true)
         .order('created_at', { ascending: false })
         .limit(4);
 
-    if (error || !data) return;
+    if (error || !data || !data.length) {
+        box.innerHTML = `<p class="text-secondary text-center w-100">No featured styles available right now.</p>`;
+        return;
+    }
 
     data.forEach(item => {
-
         box.innerHTML += `
-
 <div class="col-lg-3 col-md-4 col-6">
-
-<div class="style-card">
-
-<img
-src="${item.preview_url}"
-class="img-fluid"
-loading="lazy">
-
-<div class="p-3">
-
-<h6 class="text-warning">
-
-${item.style_code || ''}
-
-</h6>
-
-<h5>
-
-${item.title}
-
-</h5>
-
-<a
-
-href="gallery.html?category=${item.category}&style=${item.style_code}"
-
-class="btn btn-warning w-100">
-
-View Style
-
-</a>
-
+    <div class="style-card">
+        <img
+            src="${item.preview_url}"
+            class="img-fluid"
+            loading="lazy"
+            alt="${item.title}">
+        <div class="p-3">
+            <h6 class="text-warning">
+                ${item.style_code || ''}
+            </h6>
+            <h5>
+                ${item.title}
+            </h5>
+            <a
+                href="gallery.html?category=featured&style=${item.style_code}"
+                class="btn btn-warning w-100">
+                View Featured Style
+            </a>
+        </div>
+    </div>
 </div>
-
-</div>
-
-</div>
-
 `;
-
     });
-
 }
 
 // ======================================
-// NEW ARRIVAL (next 4 newest active images)
+// NEW ARRIVAL (latest 4 active images that are not already used in Featured)
 // ======================================
 
 async function loadNewest() {
-
     const box = document.getElementById("newStyles");
-
     if (!box) return;
+
+    box.innerHTML = '';
 
     const { data, error } = await supabaseClient
         .from('images')
-        .select('id, title, category, preview_url, style_code')
+        .select('id, title, category, preview_url, style_code, is_featured, created_at')
         .eq('is_active', true)
         .order('created_at', { ascending: false })
-        .range(4, 7);
+        .limit(8);
 
-    if (error || !data) return;
+    if (error || !data || !data.length) return;
 
-    data.forEach(item => {
+    const newestItems = data
+        .filter(item => !item.is_featured)
+        .slice(0, 4);
 
+    if (!newestItems.length) {
+        box.innerHTML = `<p class="text-secondary text-center w-100">No new styles available right now.</p>`;
+        return;
+    }
+
+    newestItems.forEach(item => {
         box.innerHTML += `
-
 <div class="col-lg-3 col-md-4 col-6">
-
-<div class="style-card">
-
-<img
-src="${item.preview_url}"
-class="img-fluid"
-loading="lazy">
-
-<div class="p-3">
-
-<h6 class="text-warning">
-
-${item.style_code || ''}
-
-</h6>
-
-<h5>
-
-${item.title}
-
-</h5>
-
-<a
-
-href="gallery.html?category=${item.category}&style=${item.style_code}"
-
-class="btn btn-outline-warning w-100">
-
-View Style
-
-</a>
-
+    <div class="style-card">
+        <img
+            src="${item.preview_url}"
+            class="img-fluid"
+            loading="lazy"
+            alt="${item.title}">
+        <div class="p-3">
+            <h6 class="text-warning">
+                ${item.style_code || ''}
+            </h6>
+            <h5>
+                ${item.title}
+            </h5>
+            <a
+                href="gallery.html?category=${item.category}&style=${item.style_code}"
+                class="btn btn-outline-warning w-100">
+                View Style
+            </a>
+        </div>
+    </div>
 </div>
-
-</div>
-
-</div>
-
 `;
-
     });
-
 }
 
-console.log("DEAPS App Loaded (Supabase, system + dynamic categories, v4.2)");
+console.log("DEAPS App Loaded (Supabase, system + dynamic categories, v4.3)");

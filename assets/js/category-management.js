@@ -154,27 +154,78 @@ async function checkAccess() {
 async function loadCategories() {
   document.getElementById('loadingIndicator').style.display = 'block';
 
-  const { data, error } = await supabaseClient
-    .from('categories')
-    .select('*')
-    .order('display_order', { ascending: true });
+  const categoryColumns = `
+    id,
+    name,
+    slug,
+    icon,
+    color,
+    banner_url,
+    description,
+    code_prefix,
+    display_order,
+    is_active,
+    is_archived,
+    show_on_home,
+    created_at,
+    updated_at
+  `.replace(/\s+/g, ' ').trim();
 
-  if (error) {
+  const subcategoryColumns = `
+    id,
+    category_id,
+    name,
+    slug,
+    icon,
+    color,
+    description,
+    display_order,
+    is_active,
+    is_archived,
+    show_on_home,
+    created_at,
+    updated_at
+  `.replace(/\s+/g, ' ').trim();
+
+  const [
+    { data: categoriesData, error: categoriesError },
+    { data: subData, error: subError },
+    { data: imageRefs, error: imageError }
+  ] = await Promise.all([
+    supabaseClient
+      .from('categories')
+      .select(categoryColumns)
+      .order('display_order', { ascending: true }),
+
+    supabaseClient
+      .from('subcategories')
+      .select(subcategoryColumns)
+      .order('display_order', { ascending: true }),
+
+    supabaseClient
+      .from('images')
+      .select('category_id, subcategory_id')
+  ]);
+
+  if (categoriesError) {
     document.getElementById('loadingIndicator').style.display = 'none';
-    showToast(error.message, 'danger');
+    showToast(categoriesError.message, 'danger');
     return;
   }
 
-  const { data: subData } = await supabaseClient
-    .from('subcategories')
-    .select('*')
-    .order('display_order', { ascending: true });
+  if (subError) {
+    document.getElementById('loadingIndicator').style.display = 'none';
+    showToast(subError.message, 'danger');
+    return;
+  }
+
+  if (imageError) {
+    document.getElementById('loadingIndicator').style.display = 'none';
+    showToast(imageError.message, 'danger');
+    return;
+  }
 
   allSubcategoriesFlat = subData || [];
-
-  const { data: imageRefs } = await supabaseClient
-    .from('images')
-    .select('category_id, subcategory_id');
 
   const categoryCountMap = {};
   const subcategoryCountMap = {};
@@ -183,7 +234,7 @@ async function loadCategories() {
     if (row.subcategory_id) subcategoryCountMap[row.subcategory_id] = (subcategoryCountMap[row.subcategory_id] || 0) + 1;
   });
 
-  data.forEach(cat => {
+  (categoriesData || []).forEach(cat => {
     cat._itemCount = categoryCountMap[cat.id] || 0;
     cat._subcats = allSubcategoriesFlat.filter(s => s.category_id === cat.id);
   });
@@ -193,7 +244,7 @@ async function loadCategories() {
   });
 
   document.getElementById('loadingIndicator').style.display = 'none';
-  allCategories = data;
+  allCategories = categoriesData || [];
   renderCategories();
 }
 
@@ -369,14 +420,12 @@ async function bulkAction(action) {
         await supabaseClient.from('categories').update({ is_archived: true }).eq('id', id);
         await logAudit('archive', 'category', id, cat.name);
       } else if (action === 'delete') {
-        await supabaseClient.from('categories').delete().eq('id', id);
-        await logAudit('delete', 'category', id, cat.name);
+        await deleteCategory(id, true);
       } else if (action === 'duplicate') {
         await duplicateCategory(id, true);
       }
     }
 
-    showToast(`Bulk ${action} berjaya untuk ${ids.length} kategori.`);
     clearSelection();
     loadCategories();
 
@@ -526,22 +575,46 @@ async function restoreCategory(id) {
   loadCategories();
 }
 
-async function deleteCategory(id) {
+async function deleteCategory(id, silent = false) {
   const cat = allCategories.find(c => c.id === id);
-  if (!cat) return;
+  if (!cat) return false;
 
-  if (!confirm(`Padam kategori "${cat.name}" secara KEKAL? Tindakan ini tidak boleh diundur.`)) return;
+  if (!cat.is_archived) {
+    showToast(`Kategori "${cat.name}" mesti diarchive dulu sebelum boleh dipadam kekal.`, 'danger');
+    return false;
+  }
+
+  if ((cat._subcats?.length || 0) > 0) {
+    showToast(`Kategori "${cat.name}" tidak boleh dipadam kerana masih ada ${cat._subcats.length} subcategory. Padam atau pindahkan subcategory dahulu.`, 'danger');
+    return false;
+  }
+
+  if ((cat._itemCount || 0) > 0) {
+    showToast(`Kategori "${cat.name}" tidak boleh dipadam kerana masih ada ${cat._itemCount} gallery item(s). Pindahkan atau padam item dahulu.`, 'danger');
+    return false;
+  }
+
+  if (!silent) {
+    const confirmed = confirm(
+      `DELETE PERMANENT\n\n` +
+      `Kategori: "${cat.name}"\n` +
+      `Slug: ${cat.slug}\n\n` +
+      `Tindakan ini akan padam kategori ini secara kekal dan tidak boleh diundur.\n\n` +
+      `Teruskan?`
+    );
+    if (!confirmed) return false;
+  }
 
   const { error } = await supabaseClient.from('categories').delete().eq('id', id);
 
   if (error) {
     showToast(error.message, 'danger');
-    return;
+    return false;
   }
 
   await logAudit('delete', 'category', id, cat.name);
-  showToast('Category dipadam kekal.');
-  loadCategories();
+  if (!silent) showToast('Category dipadam kekal.');
+  return true;
 }
 
 // ---- SAVE CATEGORY (ADD or EDIT) ----
@@ -554,7 +627,7 @@ document.getElementById('categoryForm').addEventListener('submit', async (e) => 
   const icon = document.getElementById('catIcon').value.trim();
   const color = document.getElementById('catColor').value;
   const codePrefix = document.getElementById('catPrefix').value.trim().toUpperCase();
-  const displayOrder = parseInt(document.getElementById('catOrder').value) || 0;
+  const displayOrder = parseInt(document.getElementById('catOrder').value, 10) || 0;
   const description = document.getElementById('catDescription').value.trim();
   const isActive = document.getElementById('catActive').checked;
   const showOnHome = document.getElementById('catShowHome').checked;
@@ -643,7 +716,7 @@ function renderSubcategoryPanel(cat) {
       <div style="flex:1; min-width:160px;">
         <strong>${sub.name}</strong> <span class="badge bg-dark border border-secondary text-secondary small">${sub.slug}</span>
         ${sub.is_archived ? '<span class="badge bg-secondary ms-1">Archived</span>' : ''}
-        <div class="small text-secondary">${sub._itemCount} items</div>
+        <div class="small text-secondary">Order: ${sub.display_order || 0} &middot; ${sub._itemCount} items</div>
       </div>
       <span class="badge ${sub.is_active ? 'bg-success' : 'bg-danger'}">${sub.is_active ? 'Active' : 'Inactive'}</span>
       <span class="badge ${sub.show_on_home ? 'bg-warning text-dark' : 'bg-secondary'}">${sub.show_on_home ? 'On Home' : 'Hidden'}</span>
@@ -666,6 +739,7 @@ function resetSubcatForm() {
   document.getElementById('subcategoryForm').reset();
   document.getElementById('subcatId').value = '';
   document.getElementById('subcatColor').value = '#D4AF37';
+  document.getElementById('subcatOrder').value = 0;
   document.getElementById('subcatActive').checked = true;
   document.getElementById('subcatShowHome').checked = true;
   document.getElementById('subcatIconPreview').innerHTML = '<i class="bi bi-tag"></i>';
@@ -684,6 +758,8 @@ function openAddSubcategory(categoryId) {
   resetSubcatForm();
   document.getElementById('subcatCategoryName').textContent = cat.name;
   document.getElementById('subcatCategoryId').value = cat.id;
+  const siblings = allSubcategoriesFlat.filter(s => s.category_id === cat.id);
+  document.getElementById('subcatOrder').value = siblings.length + 1;
   subcategoryModal.show();
 }
 
@@ -703,6 +779,7 @@ function editSubcategory(id) {
   document.getElementById('subcatIcon').value = sub.icon || '';
   document.getElementById('subcatIconPreview').innerHTML = `<i class="bi ${sub.icon || 'bi-tag'}"></i>`;
   document.getElementById('subcatColor').value = sub.color || '#D4AF37';
+  document.getElementById('subcatOrder').value = sub.display_order || 0;
   document.getElementById('subcatDescription').value = sub.description || '';
   document.getElementById('subcatActive').checked = sub.is_active;
   document.getElementById('subcatShowHome').checked = sub.show_on_home;
@@ -784,20 +861,38 @@ async function restoreSubcategory(id) {
 
 async function deleteSubcategory(id) {
   const sub = findSubcat(id);
-  if (!sub) return;
+  if (!sub) return false;
 
-  if (!confirm(`Padam subcategory "${sub.name}" secara KEKAL?`)) return;
+  if (!sub.is_archived) {
+    showToast(`Subcategory "${sub.name}" mesti diarchive dulu sebelum boleh dipadam kekal.`, 'danger');
+    return false;
+  }
+
+  if ((sub._itemCount || 0) > 0) {
+    showToast(`Subcategory "${sub.name}" tidak boleh dipadam kerana masih ada ${sub._itemCount} gallery item(s). Pindahkan atau padam item dahulu.`, 'danger');
+    return false;
+  }
+
+  const confirmed = confirm(
+    `DELETE PERMANENT\n\n` +
+    `Subcategory: "${sub.name}"\n` +
+    `Slug: ${sub.slug}\n\n` +
+    `Tindakan ini akan padam subcategory ini secara kekal dan tidak boleh diundur.\n\n` +
+    `Teruskan?`
+  );
+  if (!confirmed) return false;
 
   const { error } = await supabaseClient.from('subcategories').delete().eq('id', id);
 
   if (error) {
     showToast(error.message, 'danger');
-    return;
+    return false;
   }
 
   await logAudit('delete', 'subcategory', id, sub.name);
   showToast('Subcategory dipadam kekal.');
   loadCategories();
+  return true;
 }
 
 document.getElementById('subcatName').addEventListener('input', (e) => {
@@ -815,6 +910,7 @@ document.getElementById('subcategoryForm').addEventListener('submit', async (e) 
   const slug = slugify(document.getElementById('subcatSlug').value);
   const icon = document.getElementById('subcatIcon').value.trim();
   const color = document.getElementById('subcatColor').value;
+  const displayOrder = parseInt(document.getElementById('subcatOrder').value, 10) || 0;
   const description = document.getElementById('subcatDescription').value.trim();
   const isActive = document.getElementById('subcatActive').checked;
   const showOnHome = document.getElementById('subcatShowHome').checked;
@@ -840,7 +936,17 @@ document.getElementById('subcategoryForm').addEventListener('submit', async (e) 
   try {
     if (id) {
       const { error } = await supabaseClient.from('subcategories')
-        .update({ name, slug, icon, color, description, is_active: isActive, show_on_home: showOnHome, updated_at: new Date().toISOString() })
+        .update({
+          name,
+          slug,
+          icon,
+          color,
+          description,
+          display_order: displayOrder,
+          is_active: isActive,
+          show_on_home: showOnHome,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', id);
       if (error) throw error;
       await logAudit('update', 'subcategory', id, name);
@@ -848,8 +954,12 @@ document.getElementById('subcategoryForm').addEventListener('submit', async (e) 
     } else {
       const { data: inserted, error } = await supabaseClient.from('subcategories').insert({
         category_id: categoryId,
-        name, slug, icon, color, description,
-        display_order: siblings.length + 1,
+        name,
+        slug,
+        icon,
+        color,
+        description,
+        display_order: displayOrder,
         is_active: isActive,
         show_on_home: showOnHome
       }).select().single();

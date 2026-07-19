@@ -1,6 +1,10 @@
 // ======================================
-// DEAPS GALLERY.JS v6.3 (server-side pagination, filtering & sorting, native share, rating distribution, rate limiting)
-// Homepage, Category Management, System Categories are untouched.
+// DEAPS GALLERY.JS v6.7 (server-side pagination, filtering & sorting, native share, rating distribution, rate limiting)
+// FIXES:
+// 1) categoryFilter includes system categories (Featured + All Styles)
+// 2) refreshSubcategoryCounts uses one batched query
+// 3) buildShareUrl preserves current browsing context better
+// 4) updatePageMeta canonical rule now canonicalizes to clean category page only
 // ======================================
 
 const params = new URLSearchParams(window.location.search);
@@ -44,11 +48,15 @@ function getCachedData(key) {
         const parsed = JSON.parse(raw);
         if (Date.now() - parsed.timestamp > CACHE_TTL_MS) return null;
         return parsed.data;
-    } catch (e) { return null; }
+    } catch (e) {
+        return null;
+    }
 }
 
 function setCachedData(key, data) {
-    try { sessionStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now() })); } catch (e) {}
+    try {
+        sessionStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now() }));
+    } catch (e) {}
 }
 
 let state = GalleryState.readFromURL();
@@ -118,21 +126,47 @@ async function populateCategoryFilter() {
             .select('id, name, slug')
             .eq('is_active', true)
             .order('display_order', { ascending: true });
+
         cats = data || [];
         setCachedData('deaps_categories_cache', cats);
     }
 
-    const options = ['<option value="">All Categories</option>']
-        .concat(cats.map(c => `<option value="${c.slug}" ${currentCategorySlug === c.slug ? 'selected' : ''}>${c.name}</option>`));
+    const systemOptions = [
+        { slug: 'all', name: '🎨 All Styles' },
+        { slug: 'featured', name: '⭐ Featured' }
+    ];
+
+    const options = []
+        .concat(systemOptions.map(c =>
+            `<option value="${c.slug}" ${currentCategorySlug === c.slug ? 'selected' : ''}>${c.name}</option>`
+        ))
+        .concat([`<option value="" ${!currentCategorySlug ? 'selected' : ''}>Browse by Category...</option>`])
+        .concat(cats.map(c =>
+            `<option value="${c.slug}" ${currentCategorySlug === c.slug ? 'selected' : ''}>${c.name}</option>`
+        ));
 
     categoryFilterSelect.innerHTML = options.join('');
 }
 
-if (categoryFilterSelect) categoryFilterSelect.addEventListener('change', () => {
-    const newCategory = categoryFilterSelect.value || null;
-    if (newCategory === currentCategorySlug) return;
-    window.location.href = `gallery.html${newCategory ? `?category=${newCategory}` : ''}`;
-});
+if (categoryFilterSelect) {
+    categoryFilterSelect.addEventListener('change', () => {
+        const newCategory = categoryFilterSelect.value || null;
+        if (newCategory === currentCategorySlug) return;
+
+        const url = new URL(window.location.href);
+
+        if (newCategory) {
+            url.searchParams.set('category', newCategory);
+        } else {
+            url.searchParams.delete('category');
+        }
+
+        url.searchParams.delete('sub');
+        url.searchParams.delete('style');
+
+        window.location.href = `${url.pathname}${url.search}`;
+    });
+}
 
 async function loadSubcategoryDefsOnly() {
     if (!currentCategoryRecord || currentCategoryRecord.isSystem || !subcategoryNav) {
@@ -176,7 +210,10 @@ async function loadSubcategoryDefsOnly() {
 function renderSubcategoryNav() {
     if (!subcategoryNav) return;
 
-    const allCount = activeSubcategoryId === null ? totalServerCount : Object.values(subcategoryCountsCache).reduce((a, b) => a + b, 0);
+    const allCount = activeSubcategoryId === null
+        ? totalServerCount
+        : Object.values(subcategoryCountsCache).reduce((a, b) => a + b, 0);
+
     const countFor = (subId) => subcategoryCountsCache[subId] != null ? subcategoryCountsCache[subId] : '';
 
     const chips = [
@@ -252,6 +289,7 @@ function buildServerQuery() {
         rating: { col: 'avg_rating', asc: false },
         most_rated: { col: 'total_ratings', asc: false }
     };
+
     const sortKey = state.sort && state.sort !== 'random' ? state.sort : 'latest';
     const sortCfg = sortMap[sortKey] || sortMap.latest;
     query = query.order(sortCfg.col, { ascending: sortCfg.asc });
@@ -268,6 +306,7 @@ async function fetchServerPage(offset, limit) {
         console.error(error);
         return { rows: [], count: 0 };
     }
+
     return { rows: data || [], count: count || 0 };
 }
 
@@ -303,11 +342,14 @@ async function loadGallery() {
 async function resetAndFetchFirstPage() {
     visibleCount = pageSize;
     noMoreServerData = false;
+
     const { rows, count } = await fetchServerPage(0, pageSize);
     currentData = rows;
     totalServerCount = count;
     filteredData = rows;
+
     if (rows.length < pageSize) noMoreServerData = true;
+
     await refreshSubcategoryCounts();
     renderResultCount();
     renderGalleryPage();
@@ -315,11 +357,14 @@ async function resetAndFetchFirstPage() {
 
 async function loadMoreServerPage() {
     if (isFetchingPage || noMoreServerData) return;
+
     const { rows } = await fetchServerPage(currentData.length, pageSize);
     if (rows.length < pageSize) noMoreServerData = true;
+
     currentData = currentData.concat(rows);
     filteredData = currentData;
     visibleCount = currentData.length;
+
     renderResultCount();
     renderGalleryPage();
 }
@@ -327,16 +372,51 @@ async function loadMoreServerPage() {
 async function refreshSubcategoryCounts() {
     if (!currentCategoryRecord || currentCategoryRecord.isSystem || !subcategoryNav || !currentSubcategories.length) return;
 
-    const counts = await Promise.all(currentSubcategories.map(async sub => {
-        const { count } = await supabaseClient
-            .from('images')
-            .select('id', { count: 'exact', head: true })
-            .eq('is_active', true)
-            .eq('subcategory_id', sub.id);
-        return { id: sub.id, count: count || 0 };
-    }));
+    const subIds = currentSubcategories.map(sub => sub.id);
+    if (!subIds.length) {
+        subcategoryCountsCache = {};
+        renderSubcategoryNav();
+        return;
+    }
 
-    subcategoryCountsCache = Object.fromEntries(counts.map(c => [c.id, c.count]));
+    let query = supabaseClient
+        .from('images')
+        .select('subcategory_id')
+        .eq('is_active', true)
+        .in('subcategory_id', subIds);
+
+    if (currentCategoryRecord?.id) {
+        query = query.eq('category_id', currentCategoryRecord.id);
+    }
+
+    const keyword = (state.search || '').trim();
+    if (keyword) {
+        query = query.or(`title.ilike.%${keyword}%,description.ilike.%${keyword}%,style_code.ilike.%${keyword}%`);
+    }
+
+    const minRating = state.rating ? parseInt(state.rating) : 0;
+    if (minRating > 0) {
+        query = query.gte('avg_rating', minRating);
+    }
+
+    const { data, error } = await query;
+
+    if (error || !data) {
+        subcategoryCountsCache = {};
+        renderSubcategoryNav();
+        return;
+    }
+
+    const counts = {};
+    subIds.forEach(id => { counts[id] = 0; });
+
+    data.forEach(row => {
+        if (row.subcategory_id && counts[row.subcategory_id] !== undefined) {
+            counts[row.subcategory_id] += 1;
+        }
+    });
+
+    subcategoryCountsCache = counts;
     renderSubcategoryNav();
 }
 
@@ -366,15 +446,22 @@ async function toggleBookmark(imageId, iconEl) {
     const isBookmarked = userBookmarkIds.has(imageId);
 
     if (isBookmarked) {
-        const { error } = await supabaseClient.from('favorites').delete()
-            .eq('user_id', currentUser.id).eq('image_id', imageId);
+        const { error } = await supabaseClient
+            .from('favorites')
+            .delete()
+            .eq('user_id', currentUser.id)
+            .eq('image_id', imageId);
+
         if (!error) {
             userBookmarkIds.delete(imageId);
             if (iconEl) iconEl.classList.remove('active');
             await logBrowseAudit('bookmark_remove', imageId);
         }
     } else {
-        const { error } = await supabaseClient.from('favorites').insert({ user_id: currentUser.id, image_id: imageId });
+        const { error } = await supabaseClient
+            .from('favorites')
+            .insert({ user_id: currentUser.id, image_id: imageId });
+
         if (!error) {
             userBookmarkIds.add(imageId);
             if (iconEl) iconEl.classList.add('active');
@@ -449,7 +536,10 @@ async function renderRatingDistribution(imageId, totalRatings) {
     }
 
     const counts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
-    data.forEach(r => { if (counts[r.rating] !== undefined) counts[r.rating]++; });
+    data.forEach(r => {
+        if (counts[r.rating] !== undefined) counts[r.rating]++;
+    });
+
     const total = data.length || 1;
 
     container.innerHTML = `
@@ -542,11 +632,14 @@ async function resetFilters() {
     state.search = '';
     state.rating = null;
     state.sort = 'latest';
+
     if (sortSelect) sortSelect.value = 'latest';
     if (ratingFilterSelect) ratingFilterSelect.value = '';
+
     activeSubcategoryId = null;
     sessionStorage.removeItem(`deaps_last_sub_${currentCategorySlug}`);
     state.subcategory = null;
+
     syncUrlAndChips();
     renderSubcategoryNav();
     await resetAndFetchFirstPage();
@@ -561,6 +654,7 @@ function applyViewModeClass(mode) {
 
     const map = { grid: 'viewGridBtn', large: 'viewLargeBtn', compact: 'viewCompactBtn' };
     const activeBtn = document.getElementById(map[mode]);
+
     if (activeBtn) {
         activeBtn.classList.remove('btn-outline-light');
         activeBtn.classList.add('btn-warning', 'active');
@@ -571,8 +665,8 @@ function setViewMode(mode) {
     currentViewMode = mode;
     sessionStorage.setItem('deaps_view_mode', mode);
     state.view = mode;
-    applyViewModeClass(mode);
     syncUrlAndChips();
+    applyViewModeClass(mode);
     renderGalleryPage();
 }
 
@@ -582,6 +676,7 @@ document.getElementById('viewCompactBtn').addEventListener('click', () => setVie
 
 function renderBreadcrumbs() {
     if (!breadcrumbNav) return;
+
     const parts = [`<li class="breadcrumb-item"><a href="index.html" class="text-warning">Home</a></li>`];
 
     if (currentCategoryRecord) {
@@ -593,7 +688,9 @@ function renderBreadcrumbs() {
     if (activeSub) {
         parts.push(`<li class="breadcrumb-item active" aria-current="page">${activeSub.name}</li>`);
     } else if (currentCategoryRecord) {
-        parts[parts.length - 1] = parts[parts.length - 1].replace('breadcrumb-item', 'breadcrumb-item active').replace(/<a[^>]*>|<\/a>/g, '');
+        parts[parts.length - 1] = parts[parts.length - 1]
+            .replace('breadcrumb-item', 'breadcrumb-item active')
+            .replace(/<a[^>]*>|<\/a>/g, '');
     }
 
     breadcrumbNav.innerHTML = parts.join('');
@@ -602,6 +699,7 @@ function renderBreadcrumbs() {
 function updatePageMeta() {
     const name = currentCategoryRecord ? currentCategoryRecord.name : 'Gallery';
     const title = `${name} — DEAPS Gallery`;
+
     document.getElementById('pageTitle').textContent = title;
     document.getElementById('pageDescription').setAttribute('content', `Browse ${name} AI-generated photography styles at DEAPS Gallery.`);
     document.getElementById('ogTitle').setAttribute('content', title);
@@ -610,30 +708,78 @@ function updatePageMeta() {
     document.getElementById('twitterDescription').setAttribute('content', `Browse ${name} AI-generated photography styles.`);
 
     const canonical = document.getElementById('canonicalLink');
-    const cleanParams = new URLSearchParams();
-    if (state.category) cleanParams.set('category', state.category);
-    const cleanQuery = cleanParams.toString();
-    canonical.setAttribute('href', window.location.origin + window.location.pathname + (cleanQuery ? `?${cleanQuery}` : ''));
+    const baseUrl = window.location.origin + window.location.pathname;
+    const canonicalParams = new URLSearchParams();
+
+    if (state.category) {
+        canonicalParams.set('category', state.category);
+    }
+
+    const canonicalHref = canonicalParams.toString()
+        ? `${baseUrl}?${canonicalParams.toString()}`
+        : baseUrl;
+
+    canonical.setAttribute('href', canonicalHref);
 }
 
 function syncUrlAndChips() {
     GalleryState.writeToURL(state, { replace: true });
     renderActiveChips();
+    updatePageMeta();
 }
 
 function renderActiveChips() {
     if (!activeFilterChips) return;
+
     const chips = [];
 
-    if (state.search) chips.push({ label: `Search: "${state.search}"`, clear: () => { state.search=''; if(searchInput) searchInput.value=''; } });
-    if (state.rating) chips.push({ label: `${state.rating}★ & up`, clear: () => { state.rating=null; if(ratingFilterSelect) ratingFilterSelect.value=''; } });
+    if (state.search) {
+        chips.push({
+            label: `Search: "${state.search}"`,
+            clear: () => {
+                state.search = '';
+                if (searchInput) searchInput.value = '';
+            }
+        });
+    }
+
+    if (state.rating) {
+        chips.push({
+            label: `${state.rating}★ & up`,
+            clear: () => {
+                state.rating = null;
+                if (ratingFilterSelect) ratingFilterSelect.value = '';
+            }
+        });
+    }
+
     if (activeSubcategoryId) {
         const sub = currentSubcategories.find(s => s.id === activeSubcategoryId);
-        if (sub) chips.push({ label: sub.name, clear: () => selectSubcategory(null) });
+        if (sub) {
+            chips.push({
+                label: sub.name,
+                clear: () => selectSubcategory(null)
+            });
+        }
     }
+
     if (state.sort && state.sort !== 'latest') {
-        const labels = { oldest:'Oldest', az:'A–Z', za:'Z–A', rating:'Highest Rated', most_rated:'Most Rated', random:'Random' };
-        chips.push({ label: `Sort: ${labels[state.sort] || state.sort}`, clear: () => { state.sort='latest'; if(sortSelect) sortSelect.value='latest'; } });
+        const labels = {
+            oldest: 'Oldest',
+            az: 'A–Z',
+            za: 'Z–A',
+            rating: 'Highest Rated',
+            most_rated: 'Most Rated',
+            random: 'Random'
+        };
+
+        chips.push({
+            label: `Sort: ${labels[state.sort] || state.sort}`,
+            clear: () => {
+                state.sort = 'latest';
+                if (sortSelect) sortSelect.value = 'latest';
+            }
+        });
     }
 
     activeFilterChips.innerHTML = chips.map((c, i) => `
@@ -651,17 +797,21 @@ function renderActiveChips() {
 
 if (searchInput) searchInput.addEventListener('input', debouncedSearch);
 
-if (sortSelect) sortSelect.addEventListener('change', async () => {
-    state.sort = sortSelect.value;
-    syncUrlAndChips();
-    await resetAndFetchFirstPage();
-});
+if (sortSelect) {
+    sortSelect.addEventListener('change', async () => {
+        state.sort = sortSelect.value;
+        syncUrlAndChips();
+        await resetAndFetchFirstPage();
+    });
+}
 
-if (ratingFilterSelect) ratingFilterSelect.addEventListener('change', async () => {
-    state.rating = ratingFilterSelect.value || null;
-    syncUrlAndChips();
-    await resetAndFetchFirstPage();
-});
+if (ratingFilterSelect) {
+    ratingFilterSelect.addEventListener('change', async () => {
+        state.rating = ratingFilterSelect.value || null;
+        syncUrlAndChips();
+        await resetAndFetchFirstPage();
+    });
+}
 
 async function openStyle(id) {
     const item = currentData.find(x => x.id === id || x.style_code === id);
@@ -690,7 +840,8 @@ async function openStyle(id) {
     await renderRatingDistribution(item.id, item.total_ratings);
 
     document.getElementById("modalTags").innerHTML = item.description
-        ? `<p class="small text-secondary mb-0">${item.description}</p>` : '';
+        ? `<p class="small text-secondary mb-0">${item.description}</p>`
+        : '';
 
     resetStarSelector();
     await loadExistingUserRating(item.id);
@@ -706,11 +857,13 @@ async function openStyle(id) {
     favBtn.innerHTML = userBookmarkIds.has(item.id)
         ? '<i class="bi bi-heart-fill"></i> Bookmarked'
         : '<i class="bi bi-heart"></i> Bookmark';
+
     favBtn.onclick = async function () {
         await toggleBookmark(item.id, null);
         favBtn.innerHTML = userBookmarkIds.has(item.id)
             ? '<i class="bi bi-heart-fill"></i> Bookmarked'
             : '<i class="bi bi-heart"></i> Bookmark';
+
         const msgBox = document.getElementById("actionMsg");
         if (!currentUser) {
             msgBox.innerHTML = `<span class="text-danger">Sila login dulu di homepage untuk bookmark.</span>`;
@@ -731,13 +884,16 @@ async function openStyle(id) {
         }
 
         const { error } = await supabaseClient.from('cart_items').insert({
-            user_id: user.id, image_id: item.id, quantity: 1
+            user_id: user.id,
+            image_id: item.id,
+            quantity: 1
         });
 
         if (error) {
             msgBox.innerHTML = `<span class="text-danger">${error.message}</span>`;
             return;
         }
+
         msgBox.innerHTML = `<span class="text-success">Ditambah ke cart! 🛒</span>`;
     };
 
@@ -775,6 +931,7 @@ document.querySelectorAll('.star-input').forEach(star => {
 
     star.addEventListener('keydown', (e) => {
         const current = parseInt(star.dataset.value);
+
         if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             setStarValue(current);
@@ -794,6 +951,7 @@ document.querySelectorAll('.star-input').forEach(star => {
 
 async function loadExistingUserRating(imageId) {
     if (!currentUser) return;
+
     const { data } = await supabaseClient
         .from('ratings')
         .select('rating')
@@ -814,6 +972,7 @@ document.getElementById('submitRatingBtn').addEventListener('click', async () =>
         msgBox.innerHTML = `<span class="text-danger">Sila login dulu di homepage untuk rating.</span>`;
         return;
     }
+
     if (!currentOpenItem || selectedStarValue < 1) return;
 
     const btn = document.getElementById('submitRatingBtn');
@@ -850,14 +1009,21 @@ document.getElementById('submitRatingBtn').addEventListener('click', async () =>
     await logBrowseAudit('rating_submit', currentOpenItem.id);
 
     const { data: refreshed } = await supabaseClient
-        .from('images').select('avg_rating, total_ratings').eq('id', currentOpenItem.id).single();
+        .from('images')
+        .select('avg_rating, total_ratings')
+        .eq('id', currentOpenItem.id)
+        .single();
+
     if (refreshed) {
         currentOpenItem.avg_rating = refreshed.avg_rating;
         currentOpenItem.total_ratings = refreshed.total_ratings;
+
         const idx = currentData.findIndex(i => i.id === currentOpenItem.id);
         if (idx > -1) currentData[idx] = { ...currentData[idx], ...refreshed };
+
         document.getElementById("modalRatingStars").innerHTML = renderStarsHtml(refreshed.avg_rating);
         document.getElementById("modalRatingSummary").textContent = `${(refreshed.avg_rating || 0).toFixed(1)} out of 5 (${refreshed.total_ratings} rating${refreshed.total_ratings === 1 ? '' : 's'})`;
+
         await renderRatingDistribution(currentOpenItem.id, refreshed.total_ratings);
         renderGalleryPage();
     }
@@ -865,8 +1031,23 @@ document.getElementById('submitRatingBtn').addEventListener('click', async () =>
 
 function buildShareUrl(imageId) {
     const item = currentData.find(i => i.id === imageId);
-    const base = window.location.origin + window.location.pathname;
-    return `${base}?category=${item ? item.category : ''}&style=${item ? item.style_code : imageId}`;
+    const url = new URL(window.location.origin + window.location.pathname);
+
+    const shareCategory = state.category || currentCategorySlug || (item ? item.category : '');
+    if (shareCategory) {
+        url.searchParams.set('category', shareCategory);
+    }
+
+    if (state.subcategory) {
+        url.searchParams.set('sub', state.subcategory);
+    } else if (activeSubcategoryId) {
+        const activeSub = currentSubcategories.find(s => s.id === activeSubcategoryId);
+        if (activeSub?.slug) url.searchParams.set('sub', activeSub.slug);
+    }
+
+    url.searchParams.set('style', item ? item.style_code : imageId);
+
+    return url.toString();
 }
 
 async function openShareModal(imageId) {
@@ -912,7 +1093,9 @@ async function openShareModal(imageId) {
     document.getElementById('copyLinkBtn').onclick = () => {
         navigator.clipboard.writeText(url);
         document.getElementById('copyLinkBtn').textContent = 'Copied!';
-        setTimeout(() => { document.getElementById('copyLinkBtn').textContent = 'Copy Link'; }, 1500);
+        setTimeout(() => {
+            document.getElementById('copyLinkBtn').textContent = 'Copy Link';
+        }, 1500);
     };
 
     logBrowseAudit('share_click', imageId);
@@ -931,6 +1114,7 @@ async function updateAuthArea() {
             <span class="text-white small me-2">${user.email}</span>
             <button class="btn btn-outline-light btn-sm" id="logoutBtn">Logout</button>
         `;
+
         document.getElementById('logoutBtn').addEventListener('click', async () => {
             await supabaseClient.auth.signOut();
             updateAuthArea();
@@ -941,8 +1125,7 @@ async function updateAuthArea() {
 }
 
 updateAuthArea();
-
 syncUrlAndChips();
 loadGallery();
 
-console.log("Gallery Loaded Successfully (v6.3 — added rating rate-limiting)");
+console.log("Gallery Loaded Successfully (v6.7 — clean canonical category rule)");

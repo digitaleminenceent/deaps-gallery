@@ -2,7 +2,6 @@
 <html lang="en">
 
 <head>
-
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
@@ -11,8 +10,8 @@
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
 <link rel="stylesheet" href="assets/css/style.css">
-
 </head>
+
 <body class="admin-page-body admin-glow text-white">
 
 <nav class="navbar navbar-dark bg-black border-bottom border-secondary">
@@ -222,6 +221,10 @@
               <label class="form-label">Color</label>
               <input type="color" id="subcatColor" class="form-control form-control-color" value="#D4AF37">
             </div>
+            <div class="col-md-6">
+              <label class="form-label">Display Order</label>
+              <input type="number" id="subcatOrder" class="form-control" value="0">
+            </div>
             <div class="col-12">
               <label class="form-label">Description <span class="text-secondary small">(optional)</span></label>
               <textarea id="subcatDescription" class="form-control" rows="2"></textarea>
@@ -274,5 +277,4 @@
 <script src="assets/js/category-management.js"></script>
 
 </body>
-
 </html>

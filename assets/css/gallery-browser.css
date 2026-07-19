@@ -2,14 +2,15 @@
 
 .style-card-v2 {
   position: relative;
-  background: #141414;
-  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015));
+  border-radius: 16px;
   overflow: hidden;
   border: 1px solid rgba(255,255,255,0.08);
-  transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+  transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
   cursor: pointer;
   opacity: 0;
   animation: fadeInCard .4s ease forwards;
+  box-shadow: 0 8px 24px rgba(0,0,0,.28);
 }
 
 @keyframes fadeInCard {
@@ -18,15 +19,15 @@
 }
 
 .style-card-v2:hover {
-  transform: translateY(-4px) scale(1.015);
-  box-shadow: 0 12px 30px rgba(0,0,0,.45);
-  border-color: rgba(212,175,55,0.55);
+  transform: translateY(-4px);
+  box-shadow: 0 16px 34px rgba(0,0,0,.34);
+  border-color: rgba(212,175,55,0.34);
 }
 
 .style-card-v2 .thumb-wrap {
   position: relative;
   width: 100%;
-  aspect-ratio: 4/5;
+  aspect-ratio: 4/4.55;
   overflow: hidden;
   background: #1a1a1a;
 }
@@ -108,34 +109,43 @@
 }
 
 .style-card-v2 .card-body-v2 {
-  padding: 12px 14px 14px;
+  padding: 10px 12px 12px;
 }
 
 .style-card-v2 .cat-tags {
-  font-size: .72rem;
-  color: #999;
-  margin-bottom: 4px;
+  font-size: .68rem;
+  color: #8f8f8f;
+  margin-bottom: 3px;
+  line-height: 1.3;
 }
 
 .style-card-v2 .style-name {
   font-size: 1rem;
-  margin-bottom: 6px;
+  margin.style-card-v2 .style-name {
+  font-size: .96rem;
+  line-height: 1.35;
+  margin-bottom: 5px;
+  color: #fff;
+  font-weight: 600;
+}-bottom: 6px;
   color: #fff;
 }
 
 .style-card-v2 .rating-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: .82rem;
+  gap: 5px;
+  font-size: .78rem;
   color: #D4AF37;
+  line-height: 1.2;
+  flex-wrap: wrap;
 }
 
 .style-card-v2 .rating-row .no-rating {
   color: #666;
 }
 
-.view-large .style-card-v2 .thumb-wrap { aspect-ratio: 3/4; }
+.view-large .style-card-v2 .thumb-wrap { aspect-ratio: 4/4.7; }
 .view-compact .card-body-v2 { padding: 8px 10px 10px; }
 .view-compact .style-name { font-size: .85rem; margin-bottom: 2px; }
 .view-compact .cat-tags { font-size: .65rem; }

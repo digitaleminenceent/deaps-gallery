@@ -601,10 +601,10 @@ function renderGalleryPage() {
                             <button aria-label="Share style" onclick="event.stopPropagation(); openShareModal('${item.id}')"><i class="bi bi-share"></i></button>
                         </div>
                     </div>
-                    <div class="card-body-v2">
-                        <div class="cat-tags">${item.category || ''}${(currentSubcategories.find(s => s.id === item.subcategory_id) || {}).name ? ' &middot; ' + currentSubcategories.find(s => s.id === item.subcategory_id).name : ''}</div>
-                        <h6 class="style-name">${item.title}</h6>
-                        <div class="rating-row">
+                    <div class="card-body-v2 px-3 py-2">
+                        <div class="cat-tags text-secondary small">${item.category || ''}${(currentSubcategories.find(s => s.id === item.subcategory_id) || {}).name ? ' &middot; ' + currentSubcategories.find(s => s.id === item.subcategory_id).name : ''}</div>
+                        <h6 class="style-name mb-1">${item.title}</h6>
+                        <div class="rating-row small">
                             ${item.total_ratings > 0
                                 ? `${renderStarsHtml(item.avg_rating)} <span>${(item.avg_rating || 0).toFixed(1)} (${item.total_ratings})</span>`
                                 : `<span class="no-rating">No ratings yet</span>`}

@@ -2661,7 +2661,6 @@ document.getElementById('quickAddForm').addEventListener('submit', async (e) => 
   const parentCategoryId = document.getElementById('quickAddParentCategoryId').value;
   const name = document.getElementById('quickAddName').value.trim();
   const prefix = document.getElementById('quickAddPrefix').value.trim().toUpperCase();
-  const displayOrder = parseInt(document.getElementById('quickAddDisplayOrder').value) || 0;
   const errorBox = document.getElementById('quickAddError');
   const submitBtn = document.getElementById('quickAddSubmitBtn');
 
@@ -2679,9 +2678,14 @@ document.getElementById('quickAddForm').addEventListener('submit', async (e) => 
     const slug = slugify(name);
 
     if (type === 'category') {
+      // Auto-compute next display order (matches category-management.html behaviour)
+      const { count: catCount } = await supabaseClient
+        .from('categories')
+        .select('id', { count: 'exact', head: true });
+
       const { data, error } = await supabaseClient
         .from('categories')
-        .insert({ name, slug, code_prefix: prefix || null, display_order: displayOrder, is_active: true })
+        .insert({ name, slug, code_prefix: prefix || null, display_order: (catCount || 0) + 1, is_active: true })
         .select()
         .single();
 
@@ -2694,9 +2698,15 @@ document.getElementById('quickAddForm').addEventListener('submit', async (e) => 
     } else {
       if (!parentCategoryId) throw new Error('Kategori utama tidak sah.');
 
+      // Auto-compute next display order within this category (matches category-management.html behaviour)
+      const { count: subCount } = await supabaseClient
+        .from('subcategories')
+        .select('id', { count: 'exact', head: true })
+        .eq('category_id', parentCategoryId);
+
       const { data, error } = await supabaseClient
         .from('subcategories')
-        .insert({ name, category_id: parentCategoryId, display_order: displayOrder, is_active: true })
+        .insert({ name, slug, category_id: parentCategoryId, display_order: (subCount || 0) + 1, is_active: true })
         .select()
         .single();
 

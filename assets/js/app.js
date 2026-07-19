@@ -59,16 +59,29 @@ function renderCategorySkeleton(grid) {
 }
 
 function buildCategoryCardHtml(cat) {
+    const imageHtml = cat.banner_url
+        ? `<img src="${cat.banner_url}" loading="lazy" alt="${cat.name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">`
+        : '';
+
+    const fallbackHtml = `
+        <div class="category-fallback-icon" style="
+            width:100%;
+            height:100%;
+            background:${cat.color || '#D4AF37'}22;
+            display:${cat.banner_url ? 'none' : 'flex'};
+            align-items:center;
+            justify-content:center;
+        ">
+            <i class="bi ${cat.icon || 'bi-folder'}" style="font-size:3rem; color:${cat.color || '#D4AF37'};"></i>
+        </div>
+    `;
+
     return `
 <div class="col-lg-3 col-md-4 col-6">
     <a href="gallery.html?category=${cat.slug}" class="text-decoration-none" onclick="setLastNav('${cat.slug}')">
         <div class="category-card" style="position:relative;">
-            ${cat.banner_url
-                ? `<img src="${cat.banner_url}" loading="lazy" alt="${cat.name}">`
-                : `<div style="width:100%; height:100%; background:${cat.color || '#D4AF37'}22; display:flex; align-items:center; justify-content:center;">
-                     <i class="bi ${cat.icon || 'bi-folder'}" style="font-size:3rem; color:${cat.color || '#D4AF37'};"></i>
-                   </div>`
-            }
+            ${imageHtml}
+            ${fallbackHtml}
 
             ${cat.badge ? `<span class="badge bg-warning text-dark position-absolute top-0 end-0 m-2">${cat.badge}</span>` : ''}
 

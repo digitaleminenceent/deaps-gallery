@@ -11,7 +11,7 @@ let subcategoryCombobox = null;
 
 // ==================== UPLOAD VALIDATION CONFIG ====================
 const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15MB
-const MIN_RESOLUTION = 800; // px, both width and height
+const MIN_RESOLUTION = 300; // px, both width and height
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 function formatBytes(bytes) {

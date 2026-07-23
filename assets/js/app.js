@@ -205,7 +205,7 @@ async function searchStyle() {
     const keyword = input.value.trim().toLowerCase();
 
     if (keyword === "") {
-        alert("Please enter Style Code or Style Name.");
+        DEAPS.Toast.warning("Please enter Style Code or Style Name.");
         return;
     }
 
@@ -229,7 +229,7 @@ async function searchStyle() {
     }
 
     if (error || !data || data.length === 0) {
-        alert("Style not found.");
+        DEAPS.Toast.error("Style not found.");
         return;
     }
 
